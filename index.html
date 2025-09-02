@@ -12,10 +12,9 @@
       --panel-border: #dcdde1;
       --text: #222;
       --muted: #666;
-      --orange: #ff6a00;
-      --blue: #2ea8ff;
+      --accent: #ff6a00;
+      --accent2:#2ea8ff;
     }
-
     html, body {
       margin:0;
       background: linear-gradient(180deg, var(--bg-light), var(--bg-dark));
@@ -23,7 +22,6 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow-x:hidden;
     }
-
     /* Navbar */
     nav{
       position: fixed; inset: 16px 16px auto 16px; height: 52px;
@@ -38,7 +36,7 @@
     }
     .brand{
       font-weight: 700; font-size: 18px;
-      background: linear-gradient(90deg, var(--orange), var(--blue));
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
     .nav-links{ display:flex; gap:12px; }
@@ -62,17 +60,16 @@
       pointer-events:none; transition: opacity .2s linear;
     }
 
-    /* Canvas */
+    /* Fixed canvas */
     #stage{
       position: fixed; inset: 0; width: 100%; height:100%;
       z-index: 5; pointer-events: none;
-      transition: filter .18s linear;
+      transition: filter .12s linear;
     }
 
     /* Content */
     .wrap{ max-width: 1000px; margin: 0 auto; padding: 140px 20px 60px; position:relative; z-index: 20; }
     section{ margin: 120px 0; }
-
     .panel{
       border-radius: 16px;
       background: var(--panel);
@@ -81,12 +78,12 @@
       box-shadow: 0 6px 18px rgba(0,0,0,.06);
     }
     .panel h2{ margin:0 0 8px 0; }
-
     .spacer{ height: 300vh; }
 
+    /* Debug chip */
     #log{
       position: fixed; bottom: 18px; left: 18px; z-index: 70;
-      background: rgba(0,0,0,0.7); color: #9cf19b;
+      background: rgba(0,0,0,0.72); color: #9cf19b;
       padding:6px 10px; border-radius: 8px;
       font: 12px ui-monospace;
     }
@@ -111,29 +108,29 @@
   <div class="wrap">
     <section class="panel">
       <h2>Welcome to Know-Hub</h2>
-      <p>Explore interactive 3D models with smooth scroll-driven rotation, powered by HDR lighting for realism.</p>
+      <p>Scroll to rotate the 3D model. HDR lighting adds realistic reflections. When content overlaps, the model softens so text stays readable.</p>
     </section>
   </div>
 
-  <!-- Canvas -->
+  <!-- Fixed canvas -->
   <canvas id="stage"></canvas>
 
   <!-- Content below -->
   <div class="wrap">
     <section class="panel">
       <h2>Modern & Minimal</h2>
-      <p>A clean gradient background with subtle accents makes your product the hero. Orange and blue highlights are understated for a professional look.</p>
+      <p>Soft gray-to-white background, subtle accents, and focus on the product.</p>
     </section>
     <section class="panel">
       <h2>Scroll-Driven Focus</h2>
-      <p>As you scroll, the model rotates a full 360°. When content overlaps, the model softly blurs, keeping the text in focus.</p>
+      <p>Full 360° rotation over the page scroll. Background blur tracks overlap with these panels.</p>
     </section>
   </div>
 
   <div class="spacer"></div>
   <div id="log">Loading…</div>
 
-  <!-- Three.js + Loaders -->
+  <!-- Three.js (r0.128) + loaders -->
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
@@ -144,6 +141,7 @@
     const logEl = document.getElementById('log');
     const log = m => { logEl.textContent = m; };
 
+    // Three.js
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(0, 0.5, 2.5);
@@ -155,38 +153,42 @@
     renderer.toneMappingExposure = 1.0;
     renderer.outputEncoding = THREE.sRGBEncoding;
 
-    // Lights
-    const hemi = new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 0.4);
-    scene.add(hemi);
+    // Mild base light (most lighting comes from HDR env)
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 0.35));
 
-    // HDR Environment
+    // ✅ HDR environment with PMREM (reliable in r0.128)
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    pmrem.compileEquirectangularShader();
+
     new THREE.RGBELoader()
       .setPath('models/')
-      .load('studio_small_08_1k.hdr', function(texture) {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        scene.environment = texture;
+      .load('studio_small_08_1k.hdr', (hdrTex) => {
+        const envMap = pmrem.fromEquirectangular(hdrTex).texture;
+        scene.environment = envMap;
+        hdrTex.dispose();
+        pmrem.dispose();
         log('HDR loaded ✅');
-      }, undefined, function(err){
-        log('HDR load error ❌');
+      }, undefined, (err) => {
+        log('HDR load error ❌ (check models/studio_small_08_1k.hdr)');
         console.error(err);
       });
 
-    // Load Model
+    // Load GLB
     const loader = new THREE.GLTFLoader();
     let model = null;
     loader.load('models/test.glb', (gltf)=>{
       model = gltf.scene;
 
-      // Center + scale
+      // Center & scale; raise to visual center
       const box = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3(); box.getSize(size);
       const center = new THREE.Vector3(); box.getCenter(center);
       const maxDim = Math.max(size.x, size.y, size.z) || 1.0;
 
-      const scale = 1.0 / maxDim;
+      const scale = 1.0 / maxDim;   // comfortable size
       model.scale.setScalar(scale);
       model.position.sub(center.multiplyScalar(scale));
-      model.position.y += 0.5;  // a bit higher, to center visually
+      model.position.y += 0.5;      // ⬆ bring up to center
 
       scene.add(model);
       log('Model loaded ✅');
@@ -194,14 +196,26 @@
     }, (xhr)=>{
       if (xhr.total) log(`Loading model… ${(xhr.loaded/xhr.total*100).toFixed(0)}%`);
     }, (err)=>{
-      log('Model load error ❌');
+      log('Model load error ❌ (check models/test.glb)');
       console.error(err);
     });
 
-    // Scroll progress
+    // Progress helpers
     function scrollProgress(){
       const max = document.body.scrollHeight - window.innerHeight;
       return max > 0 ? window.scrollY / max : 0;
+    }
+    function maxOverlapRatio(){
+      // Measure how much any .wrap block overlaps the viewport (0–1)
+      let maxR = 0;
+      document.querySelectorAll('.wrap').forEach(sec=>{
+        const r = sec.getBoundingClientRect();
+        if (r.bottom <= 0 || r.top >= window.innerHeight) return;
+        const visible = Math.min(window.innerHeight, r.bottom) - Math.max(0, r.top);
+        const ratio = Math.max(0, Math.min(1, visible / window.innerHeight));
+        if (ratio > maxR) maxR = ratio;
+      });
+      return maxR;
     }
 
     // Animate
@@ -210,15 +224,23 @@
 
       if(model){
         const p = scrollProgress();
-        model.rotation.y = p * Math.PI * 2;
+        model.rotation.y = p * Math.PI * 2; // full 360°
       }
 
+      // Fade title near top
       const fadePoint = window.innerHeight * 0.4;
       titleEl.style.opacity = Math.max(0, 1 - window.scrollY / fadePoint).toFixed(2);
+
+      // ✅ Blur while content overlaps (sharp when clear)
+      const overlap = maxOverlapRatio();              // 0–1
+      const blurPx  = overlap * 6;                    // up to 6px, tasteful
+      const dim     = 1 - overlap * 0.15;             // slight dimming
+      canvasEl.style.filter = `blur(${blurPx.toFixed(1)}px) brightness(${dim.toFixed(2)})`;
 
       renderer.render(scene, camera);
     }
 
+    // Resize
     window.addEventListener('resize', ()=>{
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
