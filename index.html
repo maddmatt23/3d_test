@@ -6,35 +6,35 @@
   <title>Know-Hub — 3D Scroll Experience</title>
   <style>
     :root{
-      --bg: #0a0b0f;
-      --panel: #0f1117;
-      --panel-hi: #151826;
-      --text: #e7e8ea;
-      --muted: #aeb3bd;
-      --line: #232737;
+      --bg-light: #f7f7f8;
+      --bg-dark: #e3e4e8;
+      --panel: #ffffff;
+      --panel-border: #dcdde1;
+      --text: #222;
+      --muted: #666;
       --orange: #ff6a00;
       --blue: #2ea8ff;
-      --glow: 0 10px 30px rgba(46,168,255,.15), 0 10px 40px rgba(255,106,0,.08);
     }
 
     html, body {
-      margin:0; background: var(--bg); color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      margin:0;
+      background: linear-gradient(180deg, var(--bg-light), var(--bg-dark));
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow-x:hidden;
     }
-    a{ color:inherit; text-decoration:none; }
 
     /* Navbar */
     nav{
-      position: fixed; inset: 16px 16px auto 16px; height: 56px;
+      position: fixed; inset: 16px 16px auto 16px; height: 52px;
       display:flex; align-items:center; justify-content:space-between;
       padding: 0 16px;
-      background: rgba(21,24,38,.6);
-      border: 1px solid rgba(255,255,255,.06);
-      border-radius: 16px;
+      background: rgba(255,255,255,0.75);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
       backdrop-filter: blur(10px);
-      box-shadow: var(--glow);
       z-index: 60;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
     }
     .brand{
       font-weight: 700; font-size: 18px;
@@ -43,21 +43,22 @@
     }
     .nav-links{ display:flex; gap:12px; }
     .nav-btn{
-      padding:8px 14px; border-radius: 12px; font-weight:600;
-      background: linear-gradient(145deg, #171a28, #0d0f18);
-      border:1px solid var(--line); color: var(--text);
+      padding:8px 14px; border-radius: 10px; font-weight:500;
+      background: #fff;
+      border:1px solid var(--panel-border);
+      color: var(--text);
       cursor:pointer; font-size:14px;
+      transition: all .15s ease;
     }
+    .nav-btn:hover{ background:#f0f0f0; }
 
     /* Title */
     header#title{
-      position: fixed; top: 96px; left:50%; transform: translateX(-50%);
+      position: fixed; top: 90px; left:50%; transform: translateX(-50%);
       z-index: 40;
       font-size: clamp(28px, 6vw, 56px);
-      font-weight: 800; letter-spacing:.04em;
-      background: linear-gradient(90deg, var(--orange), var(--blue));
-      -webkit-background-clip: text; background-clip:text; color: transparent;
-      text-shadow: 0 8px 40px rgba(46,168,255,.18);
+      font-weight: 700; letter-spacing:.02em;
+      color: var(--text);
       pointer-events:none; transition: opacity .2s linear;
     }
 
@@ -69,17 +70,25 @@
     }
 
     /* Content */
-    .wrap{ max-width: 1100px; margin: 0 auto; padding: 140px 20px 60px; position:relative; z-index: 20; }
+    .wrap{ max-width: 1000px; margin: 0 auto; padding: 140px 20px 60px; position:relative; z-index: 20; }
     section{ margin: 120px 0; }
-    .panel{ border-radius: 20px; background: var(--panel); padding:28px; box-shadow: 0 20px 40px rgba(0,0,0,.35); }
+
+    .panel{
+      border-radius: 16px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      padding:28px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.06);
+    }
     .panel h2{ margin:0 0 8px 0; }
 
-    .spacer{ height: 320vh; }
+    .spacer{ height: 300vh; }
 
     #log{
       position: fixed; bottom: 18px; left: 18px; z-index: 70;
-      background: #0c0f17; color: #9cf19b; border:1px solid #254a2a;
-      padding:6px 10px; border-radius: 10px; font: 12px ui-monospace;
+      background: rgba(0,0,0,0.7); color: #9cf19b;
+      padding:6px 10px; border-radius: 8px;
+      font: 12px ui-monospace;
     }
   </style>
 </head>
@@ -102,7 +111,7 @@
   <div class="wrap">
     <section class="panel">
       <h2>Welcome to Know-Hub</h2>
-      <p>Scroll down and see the 3D model in full interactive glory, with HDR reflections for realism.</p>
+      <p>Explore interactive 3D models with smooth scroll-driven rotation, powered by HDR lighting for realism.</p>
     </section>
   </div>
 
@@ -112,8 +121,12 @@
   <!-- Content below -->
   <div class="wrap">
     <section class="panel">
-      <h2>Immersive Storytelling</h2>
-      <p>Your products shine with Apple-like polish, thanks to scroll-driven 360° views and soft HDR lighting.</p>
+      <h2>Modern & Minimal</h2>
+      <p>A clean gradient background with subtle accents makes your product the hero. Orange and blue highlights are understated for a professional look.</p>
+    </section>
+    <section class="panel">
+      <h2>Scroll-Driven Focus</h2>
+      <p>As you scroll, the model rotates a full 360°. When content overlaps, the model softly blurs, keeping the text in focus.</p>
     </section>
   </div>
 
@@ -139,11 +152,11 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.0;
     renderer.outputEncoding = THREE.sRGBEncoding;
 
     // Lights
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x222235, 0.6);
+    const hemi = new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 0.4);
     scene.add(hemi);
 
     // HDR Environment
@@ -170,10 +183,10 @@
       const center = new THREE.Vector3(); box.getCenter(center);
       const maxDim = Math.max(size.x, size.y, size.z) || 1.0;
 
-      const scale = 1.0 / maxDim;  // scaled down a touch
+      const scale = 1.0 / maxDim;
       model.scale.setScalar(scale);
       model.position.sub(center.multiplyScalar(scale));
-      model.position.y += 0.4;  // raised up again so it looks centered
+      model.position.y += 0.5;  // a bit higher, to center visually
 
       scene.add(model);
       log('Model loaded ✅');
@@ -181,7 +194,7 @@
     }, (xhr)=>{
       if (xhr.total) log(`Loading model… ${(xhr.loaded/xhr.total*100).toFixed(0)}%`);
     }, (err)=>{
-      log('Model load error ❌ (check models/test.glb path)');
+      log('Model load error ❌');
       console.error(err);
     });
 
@@ -191,7 +204,7 @@
       return max > 0 ? window.scrollY / max : 0;
     }
 
-    // Animate loop
+    // Animate
     function animate(){
       requestAnimationFrame(animate);
 
