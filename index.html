@@ -7,135 +7,128 @@
   <style>
     :root{
       --bg-light: #f7f7f8;
-      --bg-dark: #e3e4e8;
+      --bg-dark:  #e3e4e8;
       --panel: #ffffff;
       --panel-border: #dcdde1;
       --text: #222;
-      --muted: #666;
-      --accent: #ff6a00;
+      --muted:#666;
+      --accent:#ff6a00;
       --accent2:#2ea8ff;
     }
-    html, body {
+    html, body{
       margin:0;
       background: linear-gradient(180deg, var(--bg-light), var(--bg-dark));
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
       overflow-x:hidden;
     }
 
-    /* Fixed dark overlay; opacity driven after reveal */
-    #bgDark {
-      position: fixed; inset: 0; z-index: 4;
-      background: #000;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .25s linear;
+    /* Dark overlay that fades in after the photo reveal */
+    #bgDark{
+      position:fixed; inset:0; z-index:4;
+      background:#000; opacity:0; pointer-events:none;
+      transition:opacity .25s linear;
     }
 
     /* Navbar */
     nav{
-      position: fixed; inset: 16px 16px auto 16px; height: 52px;
+      position:fixed; inset:16px 16px auto 16px; height:52px;
       display:flex; align-items:center; justify-content:space-between;
-      padding: 0 16px;
-      background: rgba(255,255,255,0.75);
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
-      backdrop-filter: blur(10px);
-      z-index: 60;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      padding:0 16px; z-index:60;
+      background:rgba(255,255,255,.75);
+      border:1px solid var(--panel-border);
+      border-radius:14px; backdrop-filter:blur(10px);
+      box-shadow:0 4px 16px rgba(0,0,0,.06);
     }
     .brand{
-      font-weight: 700; font-size: 18px;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; background-clip: text; color: transparent;
+      font-weight:700; font-size:18px;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; background-clip:text; color:transparent;
     }
     .nav-links{ display:flex; gap:12px; }
     .nav-btn{
-      padding:8px 14px; border-radius: 10px; font-weight:500;
-      background: #fff;
-      border:1px solid var(--panel-border);
-      color: var(--text);
-      cursor:pointer; font-size:14px;
-      transition: all .15s ease;
+      padding:8px 14px; border-radius:10px; font-weight:500; cursor:pointer;
+      background:#fff; border:1px solid var(--panel-border); color:var(--text);
+      transition:background .15s ease, transform .15s ease, box-shadow .15s ease;
     }
-    .nav-btn:hover{ background:#f0f0f0; }
+    .nav-btn:hover{ background:#f0f0f0; transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,.08); }
 
-    /* Title with pill background */
+    /* Title pill */
     header#title{
-      position: fixed; top: 90px; left:50%; transform: translateX(-50%);
-      z-index: 40;
-      font-size: clamp(28px, 6vw, 56px);
-      font-weight: 700; letter-spacing:.02em;
-      color: var(--text);
-      pointer-events:none; transition: opacity .2s linear, background .2s linear, box-shadow .2s linear;
-      background: rgba(255,255,255,0.6);
-      padding: 10px 18px;
-      border-radius: 14px;
-      box-shadow: 0 4px 18px rgba(0,0,0,.08);
-      border: 1px solid var(--panel-border);
+      position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:40;
+      font-size:clamp(28px,6vw,56px); font-weight:700; letter-spacing:.02em;
+      color:var(--text); pointer-events:none;
+      background:rgba(255,255,255,.6); padding:10px 18px; border-radius:14px;
+      border:1px solid var(--panel-border); box-shadow:0 4px 18px rgba(0,0,0,.08);
+      transition:opacity .2s linear, background .2s linear, box-shadow .2s linear;
     }
 
-    /* Fixed canvas */
+    /* Fixed canvas hero (behind content) */
     #stage{
-      position: fixed; inset: 0; width: 100%; height:100%;
-      z-index: 5; pointer-events: none;
-      transition: filter .12s linear;
+      position:fixed; inset:0; width:100%; height:100%;
+      z-index:5; pointer-events:none; transition:filter .12s linear;
     }
 
-    /* Content */
-    .wrap{ max-width: 1000px; margin: 0 auto; padding: 140px 20px 60px; position:relative; z-index: 20; }
-    section{ margin: 120px 0; }
+    /* Content wrappers */
+    .wrap{ max-width:1000px; margin:0 auto; padding:140px 20px 60px; position:relative; z-index:20; }
+    section{ margin:120px 0; }
     .panel{
-      border-radius: 16px;
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      padding:28px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.06);
+      border-radius:16px; background:var(--panel); padding:28px;
+      border:1px solid var(--panel-border); box-shadow:0 6px 18px rgba(0,0,0,.06);
     }
     .panel h2{ margin:0 0 8px 0; }
-    .spacer{ height: 450vh; } /* ensure enough scroll to hit full rotation */
 
-    /* Bordered photo card (revealed around the angle trigger) */
+    /* Photo reveal card */
     .photo-card{
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 24px;
-      border-radius: 18px;
-      border: 1px solid var(--panel-border);
-      background: rgba(255,255,255,0.92);
-      box-shadow: 0 10px 28px rgba(0,0,0,.08);
-      padding: 22px;
-      align-items: center;
-      transform: translateY(20px);
-      opacity: 0;
-      transition: opacity .35s ease, transform .35s ease, background .25s ease, border-color .25s ease;
+      display:grid; grid-template-columns:1.2fr 1fr; gap:24px;
+      border-radius:18px; border:1px solid var(--panel-border);
+      background:rgba(255,255,255,.92); box-shadow:0 10px 28px rgba(0,0,0,.08);
+      padding:22px; align-items:center;
+      transform:translateY(20px); opacity:0;
+      transition:opacity .35s ease, transform .35s ease, background .25s ease, border-color .25s ease;
     }
     .photo-card h3{ margin:0 0 8px 0; }
-    .photo-card p { margin:0; color: var(--muted); }
+    .photo-card p{ margin:0; color:var(--muted); }
     .photo-card img{
-      width: 100%; border-radius: 14px;
-      border: 1px solid var(--panel-border);
-      box-shadow: 0 8px 22px rgba(0,0,0,.08);
-      background: #f2f2f2;
-      display: block;
-      object-fit: cover;
-      aspect-ratio: 16/10;
+      width:100%; height:auto; border-radius:14px; display:block; object-fit:cover;
+      border:1px solid var(--panel-border); background:#f2f2f2; aspect-ratio:16/10;
+      box-shadow:0 8px 22px rgba(0,0,0,.08);
     }
-    @media (max-width: 900px){
-      .photo-card{ grid-template-columns: 1fr; }
+    @media (max-width:900px){ .photo-card{ grid-template-columns:1fr; } }
+
+    /* Card grid section (like screenshot) */
+    .card-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:24px;
     }
+    .card{
+      background:#fff; border-radius:12px; overflow:hidden;
+      border:1px solid var(--panel-border);
+      box-shadow:0 4px 14px rgba(0,0,0,.06);
+      display:flex; flex-direction:column;
+      transition:transform .2s ease, box-shadow .2s ease;
+    }
+    .card:hover{ transform:translateY(-4px); box-shadow:0 8px 20px rgba(0,0,0,.1); }
+    .card img{ width:100%; height:180px; object-fit:cover; }
+    .card-body{ padding:16px; }
+    .card-body h3{ margin:8px 0; font-size:18px; }
+    .card-body p{ margin:4px 0; color:var(--muted); font-size:14px; }
+    .card-tag{ font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase; margin-bottom:4px; }
+
+    /* Ensure enough scroll to reach full rotation/reveal */
+    .spacer{ height:450vh; }
 
     /* Debug chip */
     #log{
-      position: fixed; bottom: 18px; left: 18px; z-index: 70;
-      background: rgba(0,0,0,0.72); color: #9cf19b;
-      padding:6px 10px; border-radius: 8px;
-      font: 12px ui-monospace;
+      position:fixed; bottom:18px; left:18px; z-index:70;
+      background:rgba(0,0,0,.72); color:#9cf19b; padding:6px 10px; border-radius:8px;
+      font:12px ui-monospace;
     }
   </style>
 </head>
 <body>
-  <!-- Dark fade overlay -->
+  <!-- Background darkener (JS controls opacity) -->
   <div id="bgDark"></div>
 
   <!-- Navbar -->
@@ -152,7 +145,7 @@
   <!-- Title -->
   <header id="title">Know-Hub</header>
 
-  <!-- Content above -->
+  <!-- Top content -->
   <div class="wrap">
     <section class="panel">
       <h2>Welcome to Know-Hub</h2>
@@ -160,17 +153,17 @@
     </section>
   </div>
 
-  <!-- Fixed canvas -->
+  <!-- Fixed 3D hero -->
   <canvas id="stage"></canvas>
 
-  <!-- Content below -->
+  <!-- Middle content -->
   <div class="wrap">
     <section class="panel">
       <h2>Modern & Minimal</h2>
       <p>A clean gray→white gradient background with subtle accents — product stays the hero.</p>
     </section>
 
-    <!-- Reveals between ~140° and ~200° -->
+    <!-- Photo reveal section (shows ~140°→200°) -->
     <section id="revealSection" class="photo-card">
       <img src="models/phototest.jpg" alt="Showcase" onerror="this.src='models/phototest.png'">
       <div>
@@ -178,17 +171,43 @@
         <p>As you explore further, the page subtly shifts to a darker mood, giving imagery and copy center stage.</p>
       </div>
     </section>
+  </div>
 
-    <section class="panel">
-      <h2>Scroll-Driven Focus</h2>
-      <p>Full 360° rotation over the page scroll. Background darkens after the reveal, guiding attention to the story.</p>
-    </section>
+  <!-- NEW: card grid section (like your screenshot) -->
+  <div class="wrap">
+    <h2 style="margin-bottom:30px;">More from Know-Hub</h2>
+    <div class="card-grid">
+      <div class="card">
+        <img src="models/phototest.jpg" alt="Sample 1" onerror="this.src='models/phototest.png'">
+        <div class="card-body">
+          <p class="card-tag">Read our blog</p>
+          <h3>The best foods to eat in spring</h3>
+          <p>Read advice on seasonal fruit and veg you should be enjoying right now.</p>
+        </div>
+      </div>
+      <div class="card">
+        <img src="models/phototest.jpg" alt="Sample 2" onerror="this.src='models/phototest.png'">
+        <div class="card-body">
+          <p class="card-tag">Quick & easy</p>
+          <h3>11 sandwich ideas for breakfast, lunch and dinner</h3>
+          <p>Inspire yourself with recipes suitable for every time of day.</p>
+        </div>
+      </div>
+      <div class="card">
+        <img src="models/phototest.jpg" alt="Sample 3" onerror="this.src='models/phototest.png'">
+        <div class="card-body">
+          <p class="card-tag">Helping the planet</p>
+          <h3>Buying sustainable seafood</h3>
+          <p>Learn the best way to shop for fish that’s kinder to our planet.</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="spacer"></div>
   <div id="log">Loading…</div>
 
-  <!-- Three.js (r0.128) + loaders -->
+  <!-- Three.js r0.128 + loaders -->
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/RGBELoader.js"></script>
@@ -201,7 +220,7 @@
     const logEl    = document.getElementById('log');
     const log = m => { logEl.textContent = m; };
 
-    // Three.js
+    // Three.js scene
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(0, 0.5, 2.5);
@@ -213,22 +232,18 @@
     renderer.toneMappingExposure = 1.0;
     renderer.outputEncoding = THREE.sRGBEncoding;
 
-    // Base light
+    // Gentle ambient light
     scene.add(new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 0.35));
 
-    // HDR with PMREM
+    // HDRI with PMREM (robust in r0.128)
     const pmrem = new THREE.PMREMGenerator(renderer);
     pmrem.compileEquirectangularShader();
-    new THREE.RGBELoader()
-      .setPath('models/')
-      .load('studio_small_08_1k.hdr', (hdrTex) => {
-        const envMap = pmrem.fromEquirectangular(hdrTex).texture;
-        scene.environment = envMap;
-        hdrTex.dispose(); pmrem.dispose();
-        log('HDR loaded ✅');
-      }, undefined, (err) => {
-        log('HDR load error ❌ (check models/studio_small_08_1k.hdr)'); console.error(err);
-      });
+    new THREE.RGBELoader().setPath('models/').load('studio_small_08_1k.hdr', (hdr) => {
+      const envMap = pmrem.fromEquirectangular(hdr).texture;
+      scene.environment = envMap;
+      hdr.dispose(); pmrem.dispose();
+      log('HDR loaded ✅');
+    }, undefined, (e)=>{ log('HDR load error ❌'); console.error(e); });
 
     // Load GLB
     const loader = new THREE.GLTFLoader();
@@ -236,7 +251,7 @@
     loader.load('models/test.glb', (gltf)=>{
       model = gltf.scene;
 
-      // Center & scale; vertical centering
+      // Center + scale, then lift to visual center
       const box = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3(); box.getSize(size);
       const center = new THREE.Vector3(); box.getCenter(center);
@@ -245,16 +260,13 @@
       const scale = 1.0 / maxDim;
       model.scale.setScalar(scale);
       model.position.sub(center.multiplyScalar(scale));
-      model.position.y += 0.5;  // visually centered
+      model.position.y += 0.5;
 
       scene.add(model);
       log('Model loaded ✅');
       animate();
-    }, (xhr)=>{
-      if (xhr.total) log(`Loading model… ${(xhr.loaded/xhr.total*100).toFixed(0)}%`);
-    }, (err)=>{
-      log('Model load error ❌ (check models/test.glb)'); console.error(err);
-    });
+    }, (xhr)=>{ if(xhr.total) log(`Loading model… ${(xhr.loaded/xhr.total*100).toFixed(0)}%`); },
+       (err)=>{ log('Model load error ❌'); console.error(err); });
 
     // Helpers
     function scrollProgress(){
@@ -272,18 +284,16 @@
       });
       return maxR;
     }
-    function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+    const clamp = (x,a,b)=> Math.max(a,Math.min(b,x));
 
     // Animate
     function animate(){
       requestAnimationFrame(animate);
 
-      const p = scrollProgress();          // 0–1
+      const p = scrollProgress();             // 0–1
       const angleDeg = p * 360.0;
 
-      if(model){
-        model.rotation.y = p * Math.PI * 2;  // full 360°
-      }
+      if(model) model.rotation.y = p * Math.PI * 2;
 
       // Title fade near top
       const fadePoint = window.innerHeight * 0.4;
@@ -295,23 +305,20 @@
       const dim     = 1 - overlap * 0.15;             // slight dim
       canvasEl.style.filter = `blur(${blurPx.toFixed(1)}px) brightness(${dim.toFixed(2)})`;
 
-      // Reveal photo card ~140° → 200° and fade background to black
-      const startDeg = 140;
-      const endDeg   = 200;
-      const t = clamp((angleDeg - startDeg) / (endDeg - startDeg), 0, 1); // 0→1
+      // Photo reveal + background darken between ~140° and ~200°
+      const startDeg = 140, endDeg = 200;
+      const t = clamp((angleDeg - startDeg) / (endDeg - startDeg), 0, 1);
 
       revealEl.style.opacity = t.toFixed(2);
       revealEl.style.transform = `translateY(${(1 - t) * 20}px)`;
       bgDark.style.opacity = (t * 1.0).toFixed(2);
 
-      // As background darkens, strengthen title pill slightly for contrast
+      // Strengthen title pill slightly as background darkens
       const titleBgAlpha = 0.6 + t * 0.2; // 0.6 → 0.8
       titleEl.style.background = `rgba(255,255,255,${titleBgAlpha.toFixed(2)})`;
       titleEl.style.boxShadow = `0 4px 18px rgba(0,0,0,${(0.08 + t*0.12).toFixed(2)})`;
 
-      // (Optional) debug current angle
-      // log(`Angle: ${angleDeg.toFixed(0)}°`);
-
+      // renderer
       renderer.render(scene, camera);
     }
 
