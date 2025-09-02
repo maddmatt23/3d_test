@@ -7,109 +7,45 @@
   <title>Know-Hub — 3D Scroll Experience</title>
   <style>
     :root{
-      --bg-light: #f7f7f8;
-      --bg-dark:  #e3e4e8;
-      --panel: #ffffff;
-      --panel-border: #dcdde1;
-      --text: #222;
-      --muted:#666;
-      --accent:#ff6a00;
-      --accent2:#2ea8ff;
+      --bg-light:#f7f7f8; --bg-dark:#e3e4e8;
+      --panel:#ffffff; --panel-border:#dcdde1;
+      --text:#222; --muted:#666;
+      --accent:#ff6a00; --accent2:#2ea8ff;
     }
-    html, body{
-      margin:0;
-      background: linear-gradient(180deg, var(--bg-light), var(--bg-dark));
-      color: var(--text);
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-      overflow-x:hidden;
-    }
+    html, body{ margin:0; background:linear-gradient(180deg,var(--bg-light),var(--bg-dark)); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; overflow-x:hidden; }
 
     /* Dark overlay that fades in after the photo reveal */
-    #bgDark{
-      position:fixed; inset:0; z-index:4;
-      background:#000; opacity:0; pointer-events:none;
-      transition:opacity .25s linear;
-    }
+    #bgDark{ position:fixed; inset:0; z-index:4; background:#000; opacity:0; pointer-events:none; transition:opacity .25s linear; }
 
     /* Navbar */
-    nav{
-      position:fixed; inset:16px 16px auto 16px; height:52px;
-      display:flex; align-items:center; justify-content:space-between;
-      padding:0 16px; z-index:60;
-      background:rgba(255,255,255,.75);
-      border:1px solid var(--panel-border);
-      border-radius:14px; backdrop-filter:blur(10px);
-      box-shadow:0 4px 16px rgba(0,0,0,.06);
-    }
-    .brand{
-      font-weight:700; font-size:18px;
-      background:linear-gradient(90deg,var(--accent),var(--accent2));
-      -webkit-background-clip:text; background-clip:text; color:transparent;
-    }
+    nav{ position:fixed; inset:16px 16px auto 16px; height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:60; background:rgba(255,255,255,.75); border:1px solid var(--panel-border); border-radius:14px; backdrop-filter:blur(10px); box-shadow:0 4px 16px rgba(0,0,0,.06); }
+    .brand{ font-weight:700; font-size:18px; background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
     .nav-links{ display:flex; gap:12px; }
-    .nav-btn{
-      padding:8px 14px; border-radius:10px; font-weight:500; cursor:pointer;
-      background:#fff; border:1px solid var(--panel-border); color:var(--text);
-      transition:background .15s ease, transform .15s ease, box-shadow .15s ease;
-    }
+    .nav-btn{ padding:8px 14px; border-radius:10px; font-weight:500; cursor:pointer; background:#fff; border:1px solid var(--panel-border); color:var(--text); transition:background .15s ease, transform .15s ease, box-shadow .15s ease; }
     .nav-btn:hover{ background:#f0f0f0; transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,.08); }
 
     /* Title pill */
-    header#title{
-      position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:40;
-      font-size:clamp(28px,6vw,56px); font-weight:700; letter-spacing:.02em;
-      color:var(--text); pointer-events:none;
-      background:rgba(255,255,255,.6); padding:10px 18px; border-radius:14px;
-      border:1px solid var(--panel-border); box-shadow:0 4px 18px rgba(0,0,0,.08);
-      transition:opacity .2s linear, background .2s linear, box-shadow .2s linear;
-    }
+    header#title{ position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:40; font-size:clamp(28px,6vw,56px); font-weight:700; letter-spacing:.02em; color:var(--text); pointer-events:none; background:rgba(255,255,255,.6); padding:10px 18px; border-radius:14px; border:1px solid var(--panel-border); box-shadow:0 4px 18px rgba(0,0,0,.08); transition:opacity .2s linear, background .2s linear, box-shadow .2s linear; }
 
-    /* Fixed canvas hero (behind content) */
-    #stage{
-      position:fixed; inset:0; width:100%; height:100%;
-      z-index:5; pointer-events:none; transition:filter .12s linear;
-    }
+    /* Fixed canvas hero */
+    #stage{ position:fixed; inset:0; width:100%; height:100%; z-index:5; pointer-events:none; transition:filter .12s linear; }
 
-    /* Content wrappers */
+    /* Content */
     .wrap{ max-width:1000px; margin:0 auto; padding:140px 20px 60px; position:relative; z-index:20; }
     section{ margin:120px 0; }
-    .panel{
-      border-radius:16px; background:var(--panel); padding:28px;
-      border:1px solid var(--panel-border); box-shadow:0 6px 18px rgba(0,0,0,.06);
-    }
+    .panel{ border-radius:16px; background:var(--panel); padding:28px; border:1px solid var(--panel-border); box-shadow:0 6px 18px rgba(0,0,0,.06); }
     .panel h2{ margin:0 0 8px 0; }
 
     /* Photo reveal card */
-    .photo-card{
-      display:grid; grid-template-columns:1.2fr 1fr; gap:24px;
-      border-radius:18px; border:1px solid var(--panel-border);
-      background:rgba(255,255,255,.92); box-shadow:0 10px 28px rgba(0,0,0,.08);
-      padding:22px; align-items:center;
-      transform:translateY(20px); opacity:0;
-      transition:opacity .35s ease, transform .35s ease, background .25s ease, border-color .25s ease;
-    }
+    .photo-card{ display:grid; grid-template-columns:1.2fr 1fr; gap:24px; border-radius:18px; border:1px solid var(--panel-border); background:rgba(255,255,255,.92); box-shadow:0 10px 28px rgba(0,0,0,.08); padding:22px; align-items:center; transform:translateY(20px); opacity:0; transition:opacity .35s ease, transform .35s ease, background .25s ease, border-color .25s ease; }
     .photo-card h3{ margin:0 0 8px 0; }
     .photo-card p{ margin:0; color:var(--muted); }
-    .photo-card img{
-      width:100%; height:auto; border-radius:14px; display:block; object-fit:cover;
-      border:1px solid var(--panel-border); background:#f2f2f2; aspect-ratio:16/10;
-      box-shadow:0 8px 22px rgba(0,0,0,.08);
-    }
+    .photo-card img{ width:100%; height:auto; border-radius:14px; display:block; object-fit:cover; border:1px solid var(--panel-border); background:#f2f2f2; aspect-ratio:16/10; box-shadow:0 8px 22px rgba(0,0,0,.08); }
     @media (max-width:900px){ .photo-card{ grid-template-columns:1fr; } }
 
-    /* Card grid section (like screenshot) */
-    .card-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-      gap:24px;
-    }
-    .card{
-      background:#fff; border-radius:12px; overflow:hidden;
-      border:1px solid var(--panel-border);
-      box-shadow:0 4px 14px rgba(0,0,0,.06);
-      display:flex; flex-direction:column;
-      transition:transform .2s ease, box-shadow .2s ease;
-    }
+    /* Card grid */
+    .card-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:24px; }
+    .card{ background:#fff; border-radius:12px; overflow:hidden; border:1px solid var(--panel-border); box-shadow:0 4px 14px rgba(0,0,0,.06); display:flex; flex-direction:column; transition:transform .2s ease, box-shadow .2s ease; }
     .card:hover{ transform:translateY(-4px); box-shadow:0 8px 20px rgba(0,0,0,.1); }
     .card img{ width:100%; height:180px; object-fit:cover; }
     .card-body{ padding:16px; }
@@ -117,19 +53,44 @@
     .card-body p{ margin:4px 0; color:var(--muted); font-size:14px; }
     .card-tag{ font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase; margin-bottom:4px; }
 
-    /* Ensure enough scroll to reach full rotation/reveal */
+    /* Extra scroll so we hit 360° */
     .spacer{ height:450vh; }
 
-    /* Debug chip */
-    #log{
-      position:fixed; bottom:18px; left:18px; z-index:70;
-      background:rgba(0,0,0,.72); color:#9cf19b; padding:6px 10px; border-radius:8px;
-      font:12px ui-monospace;
-    }
+    /* Debug chip (you can hide later) */
+    #log{ position:fixed; bottom:18px; left:18px; z-index:70; background:rgba(0,0,0,.72); color:#9cf19b; padding:6px 10px; border-radius:8px; font:12px ui-monospace; }
+
+    /* ===== Loader overlay ===== */
+    #loader{ position:fixed; inset:0; z-index:80; display:grid; place-items:center; background:linear-gradient(180deg, var(--bg-light), var(--bg-dark)); transition:opacity .35s ease; }
+    #loader.hide{ opacity:0; pointer-events:none; }
+    .loader-card{ width:min(420px, 90vw); background:#fff; border:1px solid var(--panel-border); border-radius:16px; padding:18px 20px; box-shadow:0 10px 30px rgba(0,0,0,.1); }
+    .loader-row{ display:flex; align-items:center; gap:12px; }
+    .spinner{ width:28px; height:28px; border-radius:50%; border:3px solid #ddd; border-top-color: var(--accent); animation:spin 1s linear infinite; }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+    .progress{ margin-top:12px; height:8px; border-radius:999px; background:#ececec; overflow:hidden; }
+    .progress > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition: width .2s ease; }
+    .pct{ margin-left:auto; font:600 14px/1.2 ui-sans-serif, system-ui; color:#333; }
+    .hint{ margin-top:10px; font:12px/1.4 ui-sans-serif, system-ui; color:#666; }
+
+    /* Scroll hint chip */
+    .scroll-hint{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:50; background:rgba(255,255,255,.9); border:1px solid var(--panel-border); border-radius:999px; padding:8px 14px; font:500 13px/1 ui-sans-serif; box-shadow:0 6px 16px rgba(0,0,0,.08); opacity:0; transition:opacity .35s ease; }
+    .scroll-hint.show{ opacity:1; }
   </style>
 </head>
 <body>
-  <!-- Background darkener (JS controls opacity) -->
+  <!-- Loader -->
+  <div id="loader">
+    <div class="loader-card">
+      <div class="loader-row">
+        <div class="spinner"></div>
+        <div>Preparing the experience…</div>
+        <div class="pct" id="pct">0%</div>
+      </div>
+      <div class="progress"><i id="bar"></i></div>
+      <div class="hint">Loading HDR lighting and 3D model. This only happens the first time.</div>
+    </div>
+  </div>
+
+  <!-- Background darkener (after reveal) -->
   <div id="bgDark"></div>
 
   <!-- Navbar -->
@@ -164,7 +125,7 @@
       <p>A clean gray→white gradient background with subtle accents — product stays the hero.</p>
     </section>
 
-    <!-- Photo reveal section (shows ~140°→200°) -->
+    <!-- Photo reveal section -->
     <section id="revealSection" class="photo-card">
       <img src="models/phototest.JPG" alt="Showcase" onerror="this.src='models/phototest.png'">
       <div>
@@ -174,7 +135,7 @@
     </section>
   </div>
 
-  <!-- NEW: card grid section (like your screenshot) -->
+  <!-- Card grid section -->
   <div class="wrap">
     <h2 style="margin-bottom:30px;">More from Know-Hub</h2>
     <div class="card-grid">
@@ -206,22 +167,31 @@
   </div>
 
   <div class="spacer"></div>
-  <div id="log">Loading…</div>
+  <div id="log" style="display:none">Loading…</div>
 
-  <!-- Three.js r0.128 + loaders -->
-<script src="libs/three.min.js"></script>
-<script src="libs/GLTFLoader.js"></script>
-<script src="libs/RGBELoader.js"></script>
+  <!-- Local libs -->
+  <script src="libs/three.min.js"></script>
+  <script src="libs/GLTFLoader.js"></script>
+  <script src="libs/RGBELoader.js"></script>
 
   <script>
     const titleEl = document.getElementById('title');
     const canvasEl = document.getElementById('stage');
     const bgDark   = document.getElementById('bgDark');
     const revealEl = document.getElementById('revealSection');
-    const logEl    = document.getElementById('log');
-    const log = m => { logEl.textContent = m; };
 
-    // Three.js scene
+    // Loader UI refs
+    const loaderEl = document.getElementById('loader');
+    const barEl = document.getElementById('bar');
+    const pctEl = document.getElementById('pct');
+
+    // Scroll hint
+    const hint = document.createElement('div');
+    hint.className = 'scroll-hint';
+    hint.textContent = 'Scroll ↓';
+    document.body.appendChild(hint);
+
+    // ===== Three.js setup =====
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(0, 0.5, 2.5);
@@ -233,41 +203,69 @@
     renderer.toneMappingExposure = 1.0;
     renderer.outputEncoding = THREE.sRGBEncoding;
 
-    // Gentle ambient light
     scene.add(new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 0.35));
 
-    // HDRI with PMREM (robust in r0.128)
+    // Combined progress (rough weighting: HDR 30%, Model 70%)
+    let hdrProgress = 0, modelProgress = 0;
+    function updateProgress() {
+      const total = Math.max(0, Math.min(1, 0.3*hdrProgress + 0.7*modelProgress));
+      barEl.style.width = (total*100).toFixed(0) + '%';
+      pctEl.textContent = (total*100).toFixed(0) + '%';
+    }
+
+    // HDRI with PMREM
     const pmrem = new THREE.PMREMGenerator(renderer);
     pmrem.compileEquirectangularShader();
-    new THREE.RGBELoader().setPath('models/').load('studio_small_08_1k.hdr', (hdr) => {
-      const envMap = pmrem.fromEquirectangular(hdr).texture;
-      scene.environment = envMap;
-      hdr.dispose(); pmrem.dispose();
-      log('HDR loaded ✅');
-    }, undefined, (e)=>{ log('HDR load error ❌'); console.error(e); });
+    new THREE.RGBELoader()
+      .setPath('models/')
+      .load('studio_small_08_1k.hdr',
+        (hdr) => {
+          const envMap = pmrem.fromEquirectangular(hdr).texture;
+          scene.environment = envMap;
+          hdr.dispose(); pmrem.dispose();
+          hdrProgress = 1; updateProgress();
+        },
+        (xhr) => {
+          // xhr.total can be 0 sometimes; treat as best effort
+          hdrProgress = xhr && xhr.total ? xhr.loaded / xhr.total : Math.min(1, hdrProgress + 0.02);
+          updateProgress();
+        },
+        (e) => { console.error('HDR load error', e); hdrProgress = 1; updateProgress(); }
+      );
 
     // Load GLB
     const loader = new THREE.GLTFLoader();
     let model = null;
-    loader.load('models/test.glb', (gltf)=>{
-      model = gltf.scene;
+    loader.load('models/test.glb',
+      (gltf) => {
+        model = gltf.scene;
 
-      // Center + scale, then lift to visual center
-      const box = new THREE.Box3().setFromObject(model);
-      const size = new THREE.Vector3(); box.getSize(size);
-      const center = new THREE.Vector3(); box.getCenter(center);
-      const maxDim = Math.max(size.x, size.y, size.z) || 1.0;
+        // Center & scale; lift
+        const box = new THREE.Box3().setFromObject(model);
+        const size = new THREE.Vector3(); box.getSize(size);
+        const center = new THREE.Vector3(); box.getCenter(center);
+        const maxDim = Math.max(size.x, size.y, size.z) || 1.0;
+        const scale = 1.0 / maxDim;
+        model.scale.setScalar(scale);
+        model.position.sub(center.multiplyScalar(scale));
+        model.position.y += 0.5;
 
-      const scale = 1.0 / maxDim;
-      model.scale.setScalar(scale);
-      model.position.sub(center.multiplyScalar(scale));
-      model.position.y += 0.5;
+        scene.add(model);
+        modelProgress = 1; updateProgress();
 
-      scene.add(model);
-      log('Model loaded ✅');
-      animate();
-    }, (xhr)=>{ if(xhr.total) log(`Loading model… ${(xhr.loaded/xhr.total*100).toFixed(0)}%`); },
-       (err)=>{ log('Model load error ❌'); console.error(err); });
+        // Tiny delay for polish, then hide loader & show scroll hint
+        setTimeout(()=> {
+          loaderEl.classList.add('hide');
+          setTimeout(()=> hint.classList.add('show'), 200);
+        }, 250);
+        animate();
+      },
+      (xhr) => {
+        modelProgress = xhr && xhr.total ? xhr.loaded / xhr.total : Math.min(1, modelProgress + 0.02);
+        updateProgress();
+      },
+      (err) => { console.error('Model load error', err); modelProgress = 1; updateProgress(); loaderEl.classList.add('hide'); }
+    );
 
     // Helpers
     function scrollProgress(){
@@ -291,35 +289,36 @@
     function animate(){
       requestAnimationFrame(animate);
 
-      const p = scrollProgress();             // 0–1
+      const p = scrollProgress();                 // 0–1
       const angleDeg = p * 360.0;
 
       if(model) model.rotation.y = p * Math.PI * 2;
+
+      // Hide scroll hint once user scrolls a bit
+      if (p > 0.02) hint.classList.remove('show');
 
       // Title fade near top
       const fadePoint = window.innerHeight * 0.4;
       titleEl.style.opacity = Math.max(0, 1 - window.scrollY / fadePoint).toFixed(2);
 
       // Blur canvas while content overlaps
-      const overlap = maxOverlapRatio();              // 0–1
-      const blurPx  = overlap * 6;                    // up to 6px
-      const dim     = 1 - overlap * 0.15;             // slight dim
+      const overlap = maxOverlapRatio();
+      const blurPx  = overlap * 6;
+      const dim     = 1 - overlap * 0.15;
       canvasEl.style.filter = `blur(${blurPx.toFixed(1)}px) brightness(${dim.toFixed(2)})`;
 
-      // Photo reveal + background darken between ~140° and ~200°
+      // Photo reveal + background darken
       const startDeg = 140, endDeg = 200;
       const t = clamp((angleDeg - startDeg) / (endDeg - startDeg), 0, 1);
-
       revealEl.style.opacity = t.toFixed(2);
       revealEl.style.transform = `translateY(${(1 - t) * 20}px)`;
       bgDark.style.opacity = (t * 1.0).toFixed(2);
 
       // Strengthen title pill slightly as background darkens
-      const titleBgAlpha = 0.6 + t * 0.2; // 0.6 → 0.8
+      const titleBgAlpha = 0.6 + t * 0.2;
       titleEl.style.background = `rgba(255,255,255,${titleBgAlpha.toFixed(2)})`;
       titleEl.style.boxShadow = `0 4px 18px rgba(0,0,0,${(0.08 + t*0.12).toFixed(2)})`;
 
-      // renderer
       renderer.render(scene, camera);
     }
 
