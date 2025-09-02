@@ -5,28 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>3D Test Model — Scroll Spin</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #0b0b0c; color: #fff; }
-    canvas { display: block; width: 100%; height: 100%; }
+    html, body { margin: 0; background: #0b0b0c; color: #fff; font-family: system-ui, sans-serif; }
 
-    /* Big title overlay */
     header {
       position: fixed;
       top: 30px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 10;
-      font-family: system-ui, sans-serif;
       font-size: clamp(24px, 5vw, 48px);
       font-weight: bold;
       letter-spacing: 0.05em;
       color: #ffffffcc;
-      pointer-events: none; /* lets you scroll without blocking */
+      pointer-events: none;
     }
 
-    /* Spacer so you can scroll */
-    .spacer {
-      height: 200vh; /* 2x viewport height to allow scrolling */
-    }
+    main { max-width: 800px; margin: 0 auto; padding: 60px 20px; line-height: 1.6; }
+    section { margin: 100px 0; }
+
+    canvas { display: block; width: 100%; height: 100vh; }
 
     #log {
       position: fixed; bottom: 10px; left: 10px;
@@ -38,9 +35,38 @@
 </head>
 <body>
   <header>TEST Model</header>
-  <div id="log">Loading…</div>
 
-  <div class="spacer"></div> <!-- makes page scrollable -->
+  <main>
+    <section>
+      <h2>Introducing the TEST Model</h2>
+      <p>
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. 
+        Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at nibh elementum imperdiet.
+      </p>
+    </section>
+  </main>
+
+  <!-- 3D Hero -->
+  <canvas id="stage"></canvas>
+
+  <main>
+    <section>
+      <h2>Powerful. Elegant. Yours.</h2>
+      <p>
+        Suspendisse potenti. Curabitur sit amet mauris. Morbi in dui quis est pulvinar ullamcorper. 
+        Nulla facilisi. Integer lacinia sollicitudin massa. Cras metus.
+      </p>
+    </section>
+    <section>
+      <h2>Designed to Inspire</h2>
+      <p>
+        Nam nec ante. Sed lacinia, urna non tincidunt mattis, tortor neque adipiscing diam, a cursus ipsum ante quis turpis.
+        Nulla facilisi. Ut fringilla. Suspendisse potenti.
+      </p>
+    </section>
+  </main>
+
+  <div id="log">Loading…</div>
 
   <!-- Core Three.js + GLTF loader -->
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
@@ -79,6 +105,7 @@
       const scale = 1.2 / maxDim;
       model.scale.setScalar(scale);
       model.position.sub(center.multiplyScalar(scale));
+      model.position.y += 0.5; // lift model up slightly
       scene.add(model);
 
       log('Model loaded ✅');
@@ -101,8 +128,7 @@
 
       if(model){
         const p = getScrollProgress();
-        // Rotate full 360° over scroll
-        model.rotation.y = p * Math.PI * 2;
+        model.rotation.y = p * Math.PI * 2; // 360° over full scroll
       }
 
       renderer.render(scene, camera);
