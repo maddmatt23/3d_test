@@ -33,6 +33,8 @@
     }
 
     main {
+      position: relative;
+      z-index: 10; /* sits above canvas */
       max-width: 800px;
       margin: 0 auto;
       padding: 60px 20px;
@@ -47,14 +49,12 @@
       top: 0; left: 0;
       width: 100%;
       height: 100%;
-      z-index: 5;
-      pointer-events: none; /* lets user scroll */
+      z-index: 1; /* stays behind text */
+      pointer-events: none;
+      transition: filter 0.5s ease;
     }
 
-    /* Spacer ensures scroll distance = full rotation */
-    .spacer {
-      height: 300vh; /* adjust for how much scroll you want */
-    }
+    .spacer { height: 300vh; }
 
     #log {
       position: fixed; bottom: 10px; left: 10px;
@@ -98,9 +98,7 @@
     </section>
   </main>
 
-  <!-- Spacer to enable scrolling for full rotation -->
   <div class="spacer"></div>
-
   <div id="log">Loading…</div>
 
   <!-- Core Three.js + GLTF loader -->
@@ -112,11 +110,13 @@
     const log = (m) => { logEl.textContent = m; console.log(m); };
 
     const title = document.getElementById('title');
+    const canvas = document.getElementById('stage');
+
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(0, 0.5, 2.5);
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, canvas: document.getElementById('stage') });
+    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, canvas: canvas });
     renderer.setSize(window.innerWidth, window.innerHeight);
 
     // Lights
@@ -163,13 +163,20 @@
 
       if(model){
         const p = getScrollProgress();
-        model.rotation.y = p * Math.PI * 2; // 360° over scroll
+        model.rotation.y = p * Math.PI * 2;
       }
 
-      // Fade out title
+      // Title fade
       const fadePoint = window.innerHeight * 0.4;
       const opacity = Math.max(0, 1 - window.scrollY / fadePoint);
       title.style.opacity = opacity.toFixed(2);
+
+      // Blur canvas when scrolled past 50% viewport
+      if(window.scrollY > window.innerHeight * 0.5){
+        canvas.style.filter = "blur(6px) brightness(0.8)";
+      } else {
+        canvas.style.filter = "none";
+      }
 
       renderer.render(scene, camera);
     }
