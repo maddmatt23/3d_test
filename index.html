@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3D Test Model Viewer — Debug</title>
+  <style>
+    html, body { height: 100%; margin: 0; background:#0b0b0c; color:#e8e8ea; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .hero { height: 120vh; display:grid; place-items:center; position:relative; }
+    canvas { display:block; width:100%; height:100%; }
+    header { position:fixed; top:16px; left:50%; transform:translateX(-50%); text-align:center; z-index:10; }
+    h1 { margin:0; font-size: clamp(20px, 3vw, 42px); letter-spacing:.02em; }
+    .spacer { height: 140vh; }
+    .hint { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); opacity:.7; font-size:14px; }
+    .log { position:fixed; right:8px; bottom:8px; background:#111; color:#0f0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; padding:8px 10px; border-radius:8px; max-width:44ch; white-space:pre-wrap; opacity:.9; }
+    .toolbar { position:fixed; left:8px; bottom:8px; display:flex; gap:8px; flex-wrap:wrap; }
+    .toolbar button { background:#1a1a1e; color:#fff; border:1px solid #2a2a2e; border-radius:10px; padding:8px 10px; cursor:pointer; }
+    .overlay { position:fixed; inset:0; display:none; place-items:center; background:rgba(180,0,0,0.2); z-index:20; }
+    .overlay .card { background:#2b0000; color:#fff; border:1px solid #ff6b6b; padding:16px 18px; border-radius:12px; max-width:70ch; }
+    .path-hint { font-size:12px; opacity:.85; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Scroll to Explore</h1>
+  </header>
+
+  <section class="hero">
+    <canvas id="stage"></canvas>
+  </section>
+
+  <div class="spacer"></div>
+  <div class="hint">Scroll ↓ to rotate model</div>
+  <div class="log" id="log">Loading…</div>
+
+  <div class="toolbar">
+    <button id="btnLocal">Load Local (models/test.glb)</button>
+    <button id="btnAstronaut">Load Astronaut (CDN)</button>
+    <button id="btnNoHDR">Disable HDR</button>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="card">
+      <b>Still loading or failed.</b><br>
+      If nothing appears after 5–10s:<br>
+      • Serve via a local server (not file://)<br>
+      • Check these paths exist relative to this HTML file:<br>
+      <div class="path-hint"><code>models/test.glb</code> and <code>models/studio_small_08_1k.hdr</code></div>
+      • Open DevTools → Console / Network for errors (404/CORS).<br><br>
+      Use the buttons bottom-left to try a CDN model or disable HDR.
+    </div>
+  </div>
+
+  <!-- Core libs -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/examples/js/loaders/RGBELoader.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/examples/js/loaders/DRACOLoader.js"></script>
+  <script src="https://unpkg.com/three@0.160.0/examples/js/loaders/KTX2Loader.js"></script>
+
+  <script>
+  (function(){
+    const logEl = document.getElementById('log');
+    const overlay = document.getElementById('overlay');
+    const log = (m)=>{ logEl.textContent = String(m); console.log(m); };
+
+    const canvas = document.getElementById('stage');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0.2, 2.4);
+
+    let useHDR = true;
+    function loadHDR() {
+      if(!useHDR) { scene.environment = null; return; }
+      new THREE.RGBELoader()
+        .setPath('models/')
+        .load('studio_small_08_1k.hdr', (hdr) => {
+          hdr.mapping = THREE.EquirectangularReflectionMapping;
+          scene.environment = hdr;
+          log('HDR loaded ✅');
+        }, undefined, (err)=>{ log('HDR load error ❌ — check path/models/studio_small_08_1k.hdr'); });
+    }
+    loadHDR();
+
+    const key = new THREE.DirectionalLight(0xffffff, 2.0); key.position.set(2, 3, 2); scene.add(key);
+    const rim = new THREE.DirectionalLight(0xffffff, 1.0); rim.position.set(-3, 2, -2); scene.add(rim);
+    renderer.shadowMap.enabled = true; key.castShadow = rim.castShadow = true;
+
+    const groundGeo = new THREE.PlaneGeometry(8,8);
+    const groundMat = new THREE.ShadowMaterial({ opacity: 0.18 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI/2; ground.position.y = -0.6; ground.receiveShadow = true; scene.add(ground);
+
+    const draco = new THREE.DRACOLoader();
+    draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/js/libs/draco/');
+
+    const ktx2 = new THREE.KTX2Loader();
+    ktx2.setTranscoderPath('https://unpkg.com/three@0.160.0/examples/js/libs/basis/');
+    ktx2.detectSupport(renderer);
+
+    const loader = new THREE.GLTFLoader();
+    loader.setDRACOLoader(draco);
+    loader.setKTX2Loader(ktx2);
+
+    let model = null; let helper = null; let baseRotation = 0;
+    function fitAndShow(gltf) {
+      if(model) { scene.remove(model); model = null; }
+      if(helper) { scene.remove(helper); helper = null; }
+      model = gltf.scene;
+      model.traverse((o)=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = false; }});
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3(); box.getSize(size);
+      const center = new THREE.Vector3(); box.getCenter(center);
+      const maxDim = Math.max(size.x, size.y, size.z) || 1.0;
+      const scale = 1.2 / maxDim;
+      model.scale.setScalar(scale);
+      model.position.sub(center.multiplyScalar(scale));
+      scene.add(model);
+      helper = new THREE.Box3Helper(new THREE.Box3().setFromObject(model), 0x00ff00);
+      scene.add(helper);
+      log('Model loaded ✅');
+    }
+
+    function loadModel(url) {
+      overlay.style.display = 'grid';
+      let timeout = setTimeout(()=>{
+        overlay.style.display = 'grid';
+      }, 6000);
+      loader.load(url, (gltf)=>{
+        clearTimeout(timeout);
+        overlay.style.display = 'none';
+        fitAndShow(gltf);
+      }, (xhr)=>{
+        if(xhr.total) log(`Loading model… ${(xhr.loaded/xhr.total*100).toFixed(0)}%`);
+        else log(`Loading model… ${xhr.loaded} bytes`);
+      }, (err)=>{
+        clearTimeout(timeout);
+        overlay.style.display = 'grid';
+        log('Model load error ❌ — check that the file exists and is reachable: ' + url);
+        console.error(err);
+      });
+    }
+
+    // Initial attempt: local file
+    loadModel('models/test.glb');
+
+    document.getElementById('btnAstronaut').onclick = ()=> loadModel('https://modelviewer.dev/shared-assets/models/Astronaut.glb');
+    document.getElementById('btnLocal').onclick = ()=> loadModel('models/test.glb');
+    document.getElementById('btnNoHDR').onclick = ()=> { useHDR = !useHDR; loadHDR(); };
+
+    function getScrollProgress(){
+      const max = document.body.scrollHeight - window.innerHeight;
+      return max > 0 ? window.scrollY / max : 0;
+    }
+
+    function onResize(){
+      const w = window.innerWidth, h = window.innerHeight;
+      renderer.setSize(w, h);
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', onResize);
+
+    function tick(){
+      requestAnimationFrame(tick);
+      const t = performance.now() * 0.001;
+      if(model){
+        const p = getScrollProgress();
+        baseRotation += 0.002;
+        model.rotation.y = baseRotation + p * Math.PI * 2;
+        model.rotation.x = Math.sin(t*0.5) * 0.05;
+      }
+      renderer.render(scene, camera);
+    }
+    tick();
+  })();
+  </script>
+</body>
+</html>
