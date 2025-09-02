@@ -51,7 +51,7 @@
       height: 100%;
       z-index: 1; /* stays behind text */
       pointer-events: none;
-      transition: filter 0.5s ease;
+      transition: filter 0.2s ease;
     }
 
     .spacer { height: 300vh; }
@@ -171,9 +171,17 @@
       const opacity = Math.max(0, 1 - window.scrollY / fadePoint);
       title.style.opacity = opacity.toFixed(2);
 
-      // Blur canvas when scrolled past 50% viewport
-      if(window.scrollY > window.innerHeight * 0.5){
-        canvas.style.filter = "blur(6px) brightness(0.8)";
+      // Blur while text is overlapping the hero
+      const firstSection = document.querySelector("main");
+      const rect = firstSection.getBoundingClientRect();
+      const overlap = rect.top < window.innerHeight && rect.bottom > 0;
+
+      if(overlap){
+        // Blur strength depends on how much the section is in view
+        const visibleHeight = Math.min(window.innerHeight, rect.bottom) - Math.max(0, rect.top);
+        const progress = visibleHeight / window.innerHeight; // 0–1
+        const blurStrength = progress * 8;
+        canvas.style.filter = `blur(${blurStrength.toFixed(1)}px) brightness(${1 - blurStrength/20})`;
       } else {
         canvas.style.filter = "none";
       }
