@@ -23,12 +23,12 @@
       overflow-x:hidden;
     }
 
-    /* Fixed dark fade overlay (we’ll drive its opacity after 200°) */
+    /* Fixed dark overlay; opacity driven after reveal */
     #bgDark {
       position: fixed; inset: 0; z-index: 4;
       background: #000;
-      opacity: 0;           /* driven by JS */
-      pointer-events: none; /* never blocks scroll */
+      opacity: 0;
+      pointer-events: none;
       transition: opacity .25s linear;
     }
 
@@ -60,7 +60,7 @@
     }
     .nav-btn:hover{ background:#f0f0f0; }
 
-    /* Title with pill background (always on, subtle) */
+    /* Title with pill background */
     header#title{
       position: fixed; top: 90px; left:50%; transform: translateX(-50%);
       z-index: 40;
@@ -93,22 +93,21 @@
       box-shadow: 0 6px 18px rgba(0,0,0,.06);
     }
     .panel h2{ margin:0 0 8px 0; }
+    .spacer{ height: 450vh; } /* ensure enough scroll to hit full rotation */
 
-    .spacer{ height: 300vh; }
-
-    /* Fancy bordered photo card (revealed after ~200°) */
+    /* Bordered photo card (revealed around the angle trigger) */
     .photo-card{
       display: grid;
       grid-template-columns: 1.2fr 1fr;
       gap: 24px;
       border-radius: 18px;
       border: 1px solid var(--panel-border);
-      background: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.92);
       box-shadow: 0 10px 28px rgba(0,0,0,.08);
       padding: 22px;
       align-items: center;
       transform: translateY(20px);
-      opacity: 0;                    /* JS will animate these */
+      opacity: 0;
       transition: opacity .35s ease, transform .35s ease, background .25s ease, border-color .25s ease;
     }
     .photo-card h3{ margin:0 0 8px 0; }
@@ -126,7 +125,7 @@
       .photo-card{ grid-template-columns: 1fr; }
     }
 
-    /* Debug chip (keep for now) */
+    /* Debug chip */
     #log{
       position: fixed; bottom: 18px; left: 18px; z-index: 70;
       background: rgba(0,0,0,0.72); color: #9cf19b;
@@ -136,7 +135,7 @@
   </style>
 </head>
 <body>
-  <!-- Dark fade overlay (sits under canvas, above gradient) -->
+  <!-- Dark fade overlay -->
   <div id="bgDark"></div>
 
   <!-- Navbar -->
@@ -171,7 +170,7 @@
       <p>A clean gray→white gradient background with subtle accents — product stays the hero.</p>
     </section>
 
-    <!-- 📸 This block fades/flies in AFTER ~200° rotation -->
+    <!-- Reveals between ~140° and ~200° -->
     <section id="revealSection" class="photo-card">
       <img src="models/phototest.jpg" alt="Showcase" onerror="this.src='models/phototest.png'">
       <div>
@@ -214,10 +213,10 @@
     renderer.toneMappingExposure = 1.0;
     renderer.outputEncoding = THREE.sRGBEncoding;
 
-    // Mild base light (HDR env does the heavy lifting)
+    // Base light
     scene.add(new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 0.35));
 
-    // ✅ HDR environment with PMREM
+    // HDR with PMREM
     const pmrem = new THREE.PMREMGenerator(renderer);
     pmrem.compileEquirectangularShader();
     new THREE.RGBELoader()
@@ -237,7 +236,7 @@
     loader.load('models/test.glb', (gltf)=>{
       model = gltf.scene;
 
-      // Center & scale; center vertically
+      // Center & scale; vertical centering
       const box = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3(); box.getSize(size);
       const center = new THREE.Vector3(); box.getCenter(center);
@@ -296,22 +295,22 @@
       const dim     = 1 - overlap * 0.15;             // slight dim
       canvasEl.style.filter = `blur(${blurPx.toFixed(1)}px) brightness(${dim.toFixed(2)})`;
 
-      // 🔻 New behavior: reveal photo card ~200° and fade background to black
-      const startDeg = 200;          // start the sequence here
-      const endDeg   = 240;          // fully done by here
+      // Reveal photo card ~140° → 200° and fade background to black
+      const startDeg = 140;
+      const endDeg   = 200;
       const t = clamp((angleDeg - startDeg) / (endDeg - startDeg), 0, 1); // 0→1
 
-      // Reveal the photo section (opacity & slide)
       revealEl.style.opacity = t.toFixed(2);
       revealEl.style.transform = `translateY(${(1 - t) * 20}px)`;
+      bgDark.style.opacity = (t * 1.0).toFixed(2);
 
-      // Fade the global background to black (under canvas/content)
-      bgDark.style.opacity = (t * 1.0).toFixed(2);   // up to opaque black
-
-      // As background darkens, make title pill a bit clearer for contrast
+      // As background darkens, strengthen title pill slightly for contrast
       const titleBgAlpha = 0.6 + t * 0.2; // 0.6 → 0.8
       titleEl.style.background = `rgba(255,255,255,${titleBgAlpha.toFixed(2)})`;
-      titleEl.style.boxShadow = `0 4px 18px rgba(0,0,0,${0.08 + t*0.12})`;
+      titleEl.style.boxShadow = `0 4px 18px rgba(0,0,0,${(0.08 + t*0.12).toFixed(2)})`;
+
+      // (Optional) debug current angle
+      // log(`Angle: ${angleDeg.toFixed(0)}°`);
 
       renderer.render(scene, camera);
     }
