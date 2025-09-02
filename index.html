@@ -3,10 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>3D Test Model — Simple</title>
+  <title>3D Test Model — Scroll Spin</title>
   <style>
-    html, body { margin: 0; height: 100%; background: #0b0b0c; }
+    html, body { margin: 0; height: 100%; background: #0b0b0c; color: #fff; }
     canvas { display: block; width: 100%; height: 100%; }
+
+    /* Big title overlay */
+    header {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-family: system-ui, sans-serif;
+      font-size: clamp(24px, 5vw, 48px);
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      color: #ffffffcc;
+      pointer-events: none; /* lets you scroll without blocking */
+    }
+
+    /* Spacer so you can scroll */
+    .spacer {
+      height: 200vh; /* 2x viewport height to allow scrolling */
+    }
+
     #log {
       position: fixed; bottom: 10px; left: 10px;
       background: #111; color: #0f0;
@@ -16,11 +37,14 @@
   </style>
 </head>
 <body>
+  <header>TEST Model</header>
   <div id="log">Loading…</div>
 
+  <div class="spacer"></div> <!-- makes page scrollable -->
+
   <!-- Core Three.js + GLTF loader -->
-<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
   <script>
     const logEl = document.getElementById('log');
@@ -34,17 +58,19 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Simple lights
+    // Lights
     const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff, 1.0);
     dir.position.set(2, 3, 2);
     scene.add(dir);
 
-    // Load your GLB model
+    // Loader
     const loader = new THREE.GLTFLoader();
+    let model = null;
     loader.load('models/test.glb', (gltf) => {
-      const model = gltf.scene;
+      model = gltf.scene;
+
       // Center & scale
       const box = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3(); box.getSize(size);
@@ -64,8 +90,21 @@
       console.error(err);
     });
 
+    // Scroll-driven rotation
+    function getScrollProgress() {
+      const max = document.body.scrollHeight - window.innerHeight;
+      return max > 0 ? window.scrollY / max : 0;
+    }
+
     function animate(){
       requestAnimationFrame(animate);
+
+      if(model){
+        const p = getScrollProgress();
+        // Rotate full 360° over scroll
+        model.rotation.y = p * Math.PI * 2;
+      }
+
       renderer.render(scene, camera);
     }
 
