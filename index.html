@@ -226,22 +226,25 @@
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.physicallyCorrectLights = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.8;            // ⬅️ darker overall so HDRI isn’t blown out
+  renderer.toneMappingExposure = 0.8;
   renderer.outputEncoding = THREE.sRGBEncoding;
 
   // Soft shadows
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  // === Lights (you will SEE these) ===
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
-  keyLight.position.set(1.5, 3.0, 2.0);
+  // === Overhead key light (shadow falls directly beneath) ===
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
+  keyLight.position.set(0, 4.0, 0.25);     // high & slightly forward
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(2048, 2048);
-  keyLight.shadow.radius = 3;                    // softer penumbra
-  keyLight.shadow.bias = -0.0005;                // reduce shadow gaps
+  keyLight.shadow.mapSize.set(3072, 3072); // higher res = crisper core
+  keyLight.shadow.radius = 3.0;            // softer penumbra
+  keyLight.shadow.bias   = -0.00035;       // reduce acne
+  keyLight.target.position.set(0, 0, 0);
   scene.add(keyLight);
+  scene.add(keyLight.target);
 
+  // Fill & rim
   const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
   fillLight.position.set(-2.0, 1.2, -1.5);
   scene.add(fillLight);
@@ -259,9 +262,45 @@
     new THREE.ShadowMaterial({ opacity: 0.28 })
   );
   ground.rotation.x = -Math.PI/2;
-  ground.position.y = 0.0;                       // ⬅️ ground at y=0
+  ground.position.y = 0.0005;              // tiny lift to avoid z-fighting
   ground.receiveShadow = true;
   scene.add(ground);
+
+  // --- Add a soft radial contact shadow that fades at the edges ---
+  function makeRadialShadowTexture(size = 1024) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(size/2, size/2, size*0.1, size/2, size/2, size*0.5);
+    g.addColorStop(0.0, 'rgba(0,0,0,0.35)');
+    g.addColorStop(0.6, 'rgba(0,0,0,0.18)');
+    g.addColorStop(1.0, 'rgba(0,0,0,0.00)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,size,size);
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = 4;
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  const contactTex = makeRadialShadowTexture(1024);
+  const contactMat = new THREE.MeshBasicMaterial({
+    map: contactTex,
+    transparent: true,
+    depthWrite: false
+  });
+  const contactMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), contactMat);
+  contactMesh.rotation.x = -Math.PI/2;
+  contactMesh.position.y = 0.001;          // slightly above ground
+  scene.add(contactMesh);
+
+  function fitContactShadowToModel(obj) {
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const radius = Math.max(size.x, size.z) * 0.55; // spread
+    contactMesh.scale.set(radius*2, radius*2, 1);
+  }
 
   // Progress
   let hdrProgress = 0, modelProgress = 0;
@@ -280,8 +319,7 @@
     .load('studio_small_08_1k.hdr',
       (hdr) => {
         const envMap = pmrem.fromEquirectangular(hdr).texture;
-        // Don’t set scene.background; keep your gradient. Only use IBL.
-        scene.environment = envMap;
+        scene.environment = envMap; // only IBL, keep gradient background
         hdr.dispose(); pmrem.dispose();
         hdrProgress = 1; updateProgress();
       },
@@ -301,36 +339,31 @@
       model = gltf.scene;
 
       // ---- Center, scale, and place model so its BOTTOM sits at y=0 ----
-      // 1) scale to unit size
       const preBox = new THREE.Box3().setFromObject(model);
       const preSize = new THREE.Vector3(); preBox.getSize(preSize);
       const preCenter = new THREE.Vector3(); preBox.getCenter(preCenter);
       const maxDim = Math.max(preSize.x, preSize.y, preSize.z) || 1.0;
-      const scale = 1.2 / maxDim;                    // slightly larger than 1.0
+      const scale = 1.2 / maxDim;
       model.scale.setScalar(scale);
-
-      // 2) move so geometric center is at origin
       model.position.sub(preCenter.multiplyScalar(scale));
 
-      // 3) now lift so bottom rests on ground (y = 0)
       const box = new THREE.Box3().setFromObject(model);
       const minY = box.min.y;
-      model.position.y -= minY;                      // ⬅️ bottom at y=0
+      model.position.y -= minY; // bottom to y=0
 
-      // Cast shadows + dim HDR reflection strength
       model.traverse((o)=>{
         if (o.isMesh){
           o.castShadow = true;
           o.receiveShadow = false;
           if (o.material && 'envMapIntensity' in o.material) {
-            o.material.envMapIntensity = 0.22;       // ⬅️ much lower reflections from HDRI
+            o.material.envMapIntensity = 0.22;
           }
         }
       });
 
       scene.add(model);
 
-      // Tighten the shadow camera around the model so the shadow matches shape, not a blob
+      // Tighten shadow camera
       const tight = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3(); tight.getSize(size);
       const radius = Math.max(size.x, size.z) * 0.75 + 0.6;
@@ -341,7 +374,9 @@
       keyLight.shadow.camera.near   = 0.1;
       keyLight.shadow.camera.far    = 10;
       keyLight.target.position.set(0, 0.0, 0);
-      scene.add(keyLight.target);
+
+      // Fit contact shadow to model footprint
+      fitContactShadowToModel(model);
 
       modelProgress = 1; updateProgress();
 
@@ -360,7 +395,7 @@
     (err) => { console.error('Model load error', err); modelProgress = 1; updateProgress(); loaderEl.classList.add('hide'); entryEl?.classList.remove('hide'); }
   );
 
-  // Entry behavior (if you kept the entry overlay)
+  // Entry behavior
   if (enterBtn && entryEl) {
     enterBtn.addEventListener('click', ()=>{
       entryEl.classList.add('hide');
