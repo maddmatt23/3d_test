@@ -194,205 +194,240 @@
   <script src="libs/GLTFLoader.js"></script>
   <script src="libs/RGBELoader.js"></script>
 
-  <script>
-    const titleEl = document.getElementById('title');
-    const canvasEl = document.getElementById('stage');
-    const bgDark   = document.getElementById('bgDark');
-    const revealEl = document.getElementById('revealSection');
-    const entryEl  = document.getElementById('entry');
-    const enterBtn = document.getElementById('enterBtn');
+<script>
+  const titleEl = document.getElementById('title');
+  const canvasEl = document.getElementById('stage');
+  const bgDark   = document.getElementById('bgDark');
+  const revealEl = document.getElementById('revealSection');
+  const entryEl  = document.getElementById('entry');
+  const enterBtn = document.getElementById('enterBtn');
 
-    // Loader UI refs
-    const loaderEl = document.getElementById('loader');
-    const barEl = document.getElementById('bar');
-    const pctEl = document.getElementById('pct');
+  // Loader UI refs
+  const loaderEl = document.getElementById('loader');
+  const barEl = document.getElementById('bar');
+  const pctEl = document.getElementById('pct');
 
-    // Scroll hint
-    const hint = document.createElement('div');
-    hint.className = 'scroll-hint';
-    hint.textContent = 'Scroll ↓';
-    document.body.appendChild(hint);
+  // Scroll hint
+  const hint = document.createElement('div');
+  hint.className = 'scroll-hint';
+  hint.textContent = 'Scroll ↓';
+  document.body.appendChild(hint);
 
-    // ===== Three.js setup =====
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
-    camera.position.set(0, 0.5, 2.5);
+  // ===== Three.js setup =====
+  const scene = new THREE.Scene();
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, canvas: canvasEl });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.physicallyCorrectLights = true;                // ✅ physically-correct lighting
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;     // ✅ Filmic curve
-    renderer.toneMappingExposure = 0.95;                    // ✅ slightly dimmer HDRI
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.shadowMap.enabled = true;                      // ✅ soft shadows
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Camera
+  const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
+  camera.position.set(0.0, 1.0, 3.0);
 
-    // Studio lights (key / fill / rim)
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.3);
-    keyLight.position.set(0.6, 1.8, 2.2);
-    keyLight.castShadow = true;
-    scene.add(keyLight);
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, canvas: canvasEl });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.physicallyCorrectLights = true;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.8;            // ⬅️ darker overall so HDRI isn’t blown out
+  renderer.outputEncoding = THREE.sRGBEncoding;
 
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    fillLight.position.set(-2.0, 1.0, -1.5);
-    scene.add(fillLight);
+  // Soft shadows
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    rimLight.position.set(1.6, 1.2, -2.2);
-    scene.add(rimLight);
+  // === Lights (you will SEE these) ===
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+  keyLight.position.set(1.5, 3.0, 2.0);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.radius = 3;                    // softer penumbra
+  keyLight.shadow.bias = -0.0005;                // reduce shadow gaps
+  scene.add(keyLight);
 
-    // Subtle ambient to lift lows
-    scene.add(new THREE.AmbientLight(0xffffff, 0.15));
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  fillLight.position.set(-2.0, 1.2, -1.5);
+  scene.add(fillLight);
 
-    // Ground shadow catcher (anchors model)
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(10,10),
-      new THREE.ShadowMaterial({ opacity: 0.22 })
-    );
-    ground.rotation.x = -Math.PI/2;
-    ground.position.y = -0.5;
-    ground.receiveShadow = true;
-    scene.add(ground);
+  const rimLight = new THREE.DirectionalLight(0xffffff, 0.45);
+  rimLight.position.set(-1.2, 2.2, -2.6);
+  scene.add(rimLight);
 
-    // Combined progress (rough weighting: HDR 30%, Model 70%)
-    let hdrProgress = 0, modelProgress = 0;
-    function updateProgress() {
-      const total = Math.max(0, Math.min(1, 0.3*hdrProgress + 0.7*modelProgress));
-      barEl.style.width = (total*100).toFixed(0) + '%';
-      pctEl.textContent = (total*100).toFixed(0) + '%';
-    }
+  // Subtle ambient
+  scene.add(new THREE.AmbientLight(0xffffff, 0.12));
 
-    // HDRI with PMREM
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    pmrem.compileEquirectangularShader();
-    new THREE.RGBELoader()
-      .setPath('models/')
-      .load('studio_small_08_1k.hdr',
-        (hdr) => {
-          const envMap = pmrem.fromEquirectangular(hdr).texture;
-          scene.environment = envMap;              // image-based lighting
-          hdr.dispose(); pmrem.dispose();
-          hdrProgress = 1; updateProgress();
-        },
-        (xhr) => {
-          hdrProgress = xhr && xhr.total ? xhr.loaded / xhr.total : Math.min(1, hdrProgress + 0.02);
-          updateProgress();
-        },
-        (e) => { console.error('HDR load error', e); hdrProgress = 1; updateProgress(); }
-      );
+  // Ground shadow catcher (model sits ON this)
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(10,10),
+    new THREE.ShadowMaterial({ opacity: 0.28 })
+  );
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y = 0.0;                       // ⬅️ ground at y=0
+  ground.receiveShadow = true;
+  scene.add(ground);
 
-    // Load GLB
-    const loader = new THREE.GLTFLoader();
-    let model = null;
-    loader.load('models/test.glb',
-      (gltf) => {
-        model = gltf.scene;
+  // Progress
+  let hdrProgress = 0, modelProgress = 0;
+  function updateProgress() {
+    const total = Math.max(0, Math.min(1, 0.3*hdrProgress + 0.7*modelProgress));
+    barEl.style.width = (total*100).toFixed(0) + '%';
+    pctEl.textContent = (total*100).toFixed(0) + '%';
+  }
 
-        // Center & scale; lift
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3(); box.getSize(size);
-        const center = new THREE.Vector3(); box.getCenter(center);
-        const maxDim = Math.max(size.x, size.y, size.z) || 1.0;
-        const scale = 1.0 / maxDim;
-        model.scale.setScalar(scale);
-        model.position.sub(center.multiplyScalar(scale));
-        model.position.y += 0.5;
+  // HDRI (dimmed) via PMREM
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
 
-        // Better reflections & shadows
-        model.traverse((o)=>{
-          if(o.isMesh){
-            o.castShadow = true;
-            if(o.material && 'envMapIntensity' in o.material){
-              o.material.envMapIntensity = 0.6;   // ✅ dims HDR reflections slightly
-            }
-          }
-        });
-
-        scene.add(model);
-        modelProgress = 1; updateProgress();
-
-        // Hide loader, then show Entry card
-        setTimeout(()=> {
-          loaderEl.classList.add('hide');
-          // wait a touch so fade feels nice
-          setTimeout(()=> entryEl.classList.remove('hide'), 180);
-        }, 250);
-
-        animate();
+  new THREE.RGBELoader()
+    .setPath('models/')
+    .load('studio_small_08_1k.hdr',
+      (hdr) => {
+        const envMap = pmrem.fromEquirectangular(hdr).texture;
+        // Don’t set scene.background; keep your gradient. Only use IBL.
+        scene.environment = envMap;
+        hdr.dispose(); pmrem.dispose();
+        hdrProgress = 1; updateProgress();
       },
       (xhr) => {
-        modelProgress = xhr && xhr.total ? xhr.loaded / xhr.total : Math.min(1, modelProgress + 0.02);
+        hdrProgress = xhr && xhr.total ? xhr.loaded / xhr.total : Math.min(1, hdrProgress + 0.02);
         updateProgress();
       },
-      (err) => { console.error('Model load error', err); modelProgress = 1; updateProgress(); loaderEl.classList.add('hide'); entryEl.classList.remove('hide'); }
+      (e) => { console.error('HDR load error', e); hdrProgress = 1; updateProgress(); }
     );
 
-    // Entry behavior
+  // Load GLB
+  const loader = new THREE.GLTFLoader();
+  let model = null;
+
+  loader.load('models/test.glb',
+    (gltf) => {
+      model = gltf.scene;
+
+      // ---- Center, scale, and place model so its BOTTOM sits at y=0 ----
+      // 1) scale to unit size
+      const preBox = new THREE.Box3().setFromObject(model);
+      const preSize = new THREE.Vector3(); preBox.getSize(preSize);
+      const preCenter = new THREE.Vector3(); preBox.getCenter(preCenter);
+      const maxDim = Math.max(preSize.x, preSize.y, preSize.z) || 1.0;
+      const scale = 1.2 / maxDim;                    // slightly larger than 1.0
+      model.scale.setScalar(scale);
+
+      // 2) move so geometric center is at origin
+      model.position.sub(preCenter.multiplyScalar(scale));
+
+      // 3) now lift so bottom rests on ground (y = 0)
+      const box = new THREE.Box3().setFromObject(model);
+      const minY = box.min.y;
+      model.position.y -= minY;                      // ⬅️ bottom at y=0
+
+      // Cast shadows + dim HDR reflection strength
+      model.traverse((o)=>{
+        if (o.isMesh){
+          o.castShadow = true;
+          o.receiveShadow = false;
+          if (o.material && 'envMapIntensity' in o.material) {
+            o.material.envMapIntensity = 0.22;       // ⬅️ much lower reflections from HDRI
+          }
+        }
+      });
+
+      scene.add(model);
+
+      // Tighten the shadow camera around the model so the shadow matches shape, not a blob
+      const tight = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3(); tight.getSize(size);
+      const radius = Math.max(size.x, size.z) * 0.75 + 0.6;
+      keyLight.shadow.camera.left   = -radius;
+      keyLight.shadow.camera.right  =  radius;
+      keyLight.shadow.camera.top    =  radius;
+      keyLight.shadow.camera.bottom = -radius;
+      keyLight.shadow.camera.near   = 0.1;
+      keyLight.shadow.camera.far    = 10;
+      keyLight.target.position.set(0, 0.0, 0);
+      scene.add(keyLight.target);
+
+      modelProgress = 1; updateProgress();
+
+      // Hide loader, then show Entry card
+      setTimeout(()=> {
+        loaderEl.classList.add('hide');
+        setTimeout(()=> entryEl?.classList.remove('hide'), 180);
+      }, 250);
+
+      animate();
+    },
+    (xhr) => {
+      modelProgress = xhr && xhr.total ? xhr.loaded / xhr.total : Math.min(1, modelProgress + 0.02);
+      updateProgress();
+    },
+    (err) => { console.error('Model load error', err); modelProgress = 1; updateProgress(); loaderEl.classList.add('hide'); entryEl?.classList.remove('hide'); }
+  );
+
+  // Entry behavior (if you kept the entry overlay)
+  if (enterBtn && entryEl) {
     enterBtn.addEventListener('click', ()=>{
-      entryEl.classList.add('hide');      // dismiss overlay
-      hint.classList.add('show');         // show “Scroll ↓” chip
+      entryEl.classList.add('hide');
+      hint.classList.add('show');
       setTimeout(()=> hint.classList.remove('show'), 2200);
     });
+  }
 
-    // Helpers
-    function scrollProgress(){
-      const max = document.body.scrollHeight - window.innerHeight;
-      return max > 0 ? window.scrollY / max : 0;
-    }
-    function maxOverlapRatio(){
-      let maxR = 0;
-      document.querySelectorAll('.wrap').forEach(sec=>{
-        const r = sec.getBoundingClientRect();
-        if (r.bottom <= 0 || r.top >= window.innerHeight) return;
-        const visible = Math.min(window.innerHeight, r.bottom) - Math.max(0, r.top);
-        const ratio = Math.max(0, Math.min(1, visible / window.innerHeight));
-        if (ratio > maxR) maxR = ratio;
-      });
-      return maxR;
-    }
-    const clamp = (x,a,b)=> Math.max(a,Math.min(b,x));
-
-    // Animate
-    function animate(){
-      requestAnimationFrame(animate);
-
-      const p = scrollProgress();                 // 0–1
-      const angleDeg = p * 360.0;
-
-      if(model) model.rotation.y = p * Math.PI * 2;
-
-      // Title fade near top
-      const fadePoint = window.innerHeight * 0.4;
-      titleEl.style.opacity = Math.max(0, 1 - window.scrollY / fadePoint).toFixed(2);
-
-      // Blur canvas while content overlaps
-      const overlap = maxOverlapRatio();
-      const blurPx  = overlap * 6;
-      const dim     = 1 - overlap * 0.15;
-      canvasEl.style.filter = `blur(${blurPx.toFixed(1)}px) brightness(${dim.toFixed(2)})`;
-
-      // Photo reveal + background darken
-      const startDeg = 140, endDeg = 200;
-      const t = clamp((angleDeg - startDeg) / (endDeg - startDeg), 0, 1);
-      revealEl.style.opacity = t.toFixed(2);
-      revealEl.style.transform = `translateY(${(1 - t) * 20}px)`;
-      bgDark.style.opacity = (t * 1.0).toFixed(2);
-
-      // Strengthen title pill slightly as background darkens
-      const titleBgAlpha = 0.6 + t * 0.2;
-      titleEl.style.background = `rgba(255,255,255,${titleBgAlpha.toFixed(2)})`;
-      titleEl.style.boxShadow = `0 4px 18px rgba(0,0,0,${(0.08 + t*0.12).toFixed(2)})`;
-
-      renderer.render(scene, camera);
-    }
-
-    // Resize
-    window.addEventListener('resize', ()=>{
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+  // Helpers
+  function scrollProgress(){
+    const max = document.body.scrollHeight - window.innerHeight;
+    return max > 0 ? window.scrollY / max : 0;
+  }
+  function maxOverlapRatio(){
+    let maxR = 0;
+    document.querySelectorAll('.wrap').forEach(sec=>{
+      const r = sec.getBoundingClientRect();
+      if (r.bottom <= 0 || r.top >= window.innerHeight) return;
+      const visible = Math.min(window.innerHeight, r.bottom) - Math.max(0, r.top);
+      const ratio = Math.max(0, Math.min(1, visible / window.innerHeight));
+      if (ratio > maxR) maxR = ratio;
     });
-  </script>
+    return maxR;
+  }
+  const clamp = (x,a,b)=> Math.max(a,Math.min(b,x));
+
+  // Animate
+  function animate(){
+    requestAnimationFrame(animate);
+
+    const p = scrollProgress();                 // 0–1
+    const angleDeg = p * 360.0;
+
+    if(model) model.rotation.y = p * Math.PI * 2;
+
+    // Title fade near top
+    const fadePoint = window.innerHeight * 0.4;
+    titleEl.style.opacity = Math.max(0, 1 - window.scrollY / fadePoint).toFixed(2);
+
+    // Blur canvas while content overlaps
+    const overlap = maxOverlapRatio();
+    const blurPx  = overlap * 6;
+    const dim     = 1 - overlap * 0.15;
+    canvasEl.style.filter = `blur(${blurPx.toFixed(1)}px) brightness(${dim.toFixed(2)})`;
+
+    // Photo reveal + background darken
+    const startDeg = 140, endDeg = 200;
+    const t = clamp((angleDeg - startDeg) / (endDeg - startDeg), 0, 1);
+    revealEl.style.opacity = t.toFixed(2);
+    revealEl.style.transform = `translateY(${(1 - t) * 20}px)`;
+    bgDark.style.opacity = (t * 1.0).toFixed(2);
+
+    // Strengthen title pill slightly as background darkens
+    const titleBgAlpha = 0.6 + t * 0.2;
+    titleEl.style.background = `rgba(255,255,255,${titleBgAlpha.toFixed(2)})`;
+    titleEl.style.boxShadow = `0 4px 18px rgba(0,0,0,${(0.08 + t*0.12).toFixed(2)})`;
+
+    renderer.render(scene, camera);
+  }
+
+  // Resize
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
 </body>
 </html>
