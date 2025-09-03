@@ -53,6 +53,16 @@
     .card-body p{ margin:4px 0; color:var(--muted); font-size:14px; }
     .card-tag{ font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase; margin-bottom:4px; }
 
+    /* Video section */
+    .video-wrap{ margin-top:60px; }
+    .video-frame{
+      position:relative; width:100%;
+      aspect-ratio:16/9; /* 1920x1080 */
+      background:#000; border:1px solid var(--panel-border); border-radius:14px;
+      overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.10);
+    }
+    .video-frame video{ width:100%; height:100%; object-fit:cover; display:block; }
+
     /* Extra scroll so we hit 360° */
     .spacer{ height:450vh; }
 
@@ -153,6 +163,23 @@
         <p>As you explore further, the page subtly shifts to a darker mood, giving imagery and copy center stage.</p>
       </div>
     </section>
+
+    <!-- Video section -->
+    <section class="panel video-wrap">
+      <h2>Watch the Demo</h2>
+      <p class="muted">This player loads from <code>/videos</code> in your repo. Drop a 1920×1080 MP4 there and name it <code>yourvideo.mp4</code>.</p>
+      <div class="video-frame">
+        <video
+          src="videos/yourvideo.mp4"
+          controls
+          preload="metadata"
+          playsinline
+          webkit-playsinline
+          poster="models/test.jpg">
+          Sorry, your browser doesn’t support the video tag.
+        </video>
+      </div>
+    </section>
   </div>
 
   <!-- Card grid section -->
@@ -187,7 +214,6 @@
   </div>
 
   <div class="spacer"></div>
-  <div id="log" style="display:none">Loading…</div>
 
   <!-- Local libs -->
   <script src="libs/three.min.js"></script>
@@ -226,81 +252,74 @@
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.physicallyCorrectLights = true;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.8;
+  renderer.toneMappingExposure = 0.8;            // darker overall so HDRI isn’t blown out
   renderer.outputEncoding = THREE.sRGBEncoding;
 
   // Soft shadows
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  // === Overhead key light (shadow falls directly beneath) ===
+  // === Lights you will SEE ===
   const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
-  keyLight.position.set(0, 4.0, 0.25);     // high & slightly forward
+  keyLight.position.set(1.8, 3.0, 2.0);
   keyLight.castShadow = true;
-  keyLight.shadow.mapSize.set(3072, 3072); // higher res = crisper core
-  keyLight.shadow.radius = 3.0;            // softer penumbra
-  keyLight.shadow.bias   = -0.00035;       // reduce acne
-  keyLight.target.position.set(0, 0, 0);
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.radius = 4;                    // softer edge
+  keyLight.shadow.bias = -0.0005;
   scene.add(keyLight);
-  scene.add(keyLight.target);
 
-  // Fill & rim
-  const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.55);
   fillLight.position.set(-2.0, 1.2, -1.5);
   scene.add(fillLight);
 
-  const rimLight = new THREE.DirectionalLight(0xffffff, 0.45);
+  const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
   rimLight.position.set(-1.2, 2.2, -2.6);
   scene.add(rimLight);
 
   // Subtle ambient
   scene.add(new THREE.AmbientLight(0xffffff, 0.12));
 
-  // Ground shadow catcher (model sits ON this)
+  // === STAGE GROUP (move everything together) ===
+  const stage = new THREE.Group();
+  scene.add(stage);
+
+  // Ground shadow catcher (receives real shadow)
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(10,10),
+    new THREE.PlaneGeometry(12,12),
     new THREE.ShadowMaterial({ opacity: 0.28 })
   );
   ground.rotation.x = -Math.PI/2;
-  ground.position.y = 0.0005;              // tiny lift to avoid z-fighting
+  ground.position.y = 0.0;
   ground.receiveShadow = true;
-  scene.add(ground);
+  stage.add(ground);
 
-  // --- Add a soft radial contact shadow that fades at the edges ---
-  function makeRadialShadowTexture(size = 1024) {
+  // Soft contact shadow (extra fade around edges)
+  function makeRadialTexture(size=512){
     const c = document.createElement('canvas');
     c.width = c.height = size;
     const ctx = c.getContext('2d');
-    const g = ctx.createRadialGradient(size/2, size/2, size*0.1, size/2, size/2, size*0.5);
-    g.addColorStop(0.0, 'rgba(0,0,0,0.35)');
-    g.addColorStop(0.6, 'rgba(0,0,0,0.18)');
-    g.addColorStop(1.0, 'rgba(0,0,0,0.00)');
+    const g = ctx.createRadialGradient(size/2,size/2, size*0.1, size/2,size/2, size*0.5);
+    g.addColorStop(0, 'rgba(0,0,0,0.25)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0,0,size,size);
     const tex = new THREE.CanvasTexture(c);
-    tex.anisotropy = 4;
-    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.needsUpdate = true;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
     return tex;
   }
-
-  const contactTex = makeRadialShadowTexture(1024);
-  const contactMat = new THREE.MeshBasicMaterial({
-    map: contactTex,
-    transparent: true,
-    depthWrite: false
-  });
-  const contactMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), contactMat);
+  const contactTex = makeRadialTexture(512);
+  const contactMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.2, 3.2),
+    new THREE.MeshBasicMaterial({ map: contactTex, transparent:true, opacity:0.9 })
+  );
   contactMesh.rotation.x = -Math.PI/2;
-  contactMesh.position.y = 0.001;          // slightly above ground
-  scene.add(contactMesh);
+  contactMesh.position.y = 0.001; // slightly above ground to avoid z-fighting
+  stage.add(contactMesh);
 
-  function fitContactShadowToModel(obj) {
-    const box = new THREE.Box3().setFromObject(obj);
-    const size = new THREE.Vector3(); box.getSize(size);
-    const radius = Math.max(size.x, size.z) * 0.55; // spread
-    contactMesh.scale.set(radius*2, radius*2, 1);
-  }
+  // Raise the whole stage (model + ground + contact)
+  stage.position.y = 0.30; // <<< TUNE THIS to bring the 3D up/down
 
   // Progress
   let hdrProgress = 0, modelProgress = 0;
@@ -319,7 +338,7 @@
     .load('studio_small_08_1k.hdr',
       (hdr) => {
         const envMap = pmrem.fromEquirectangular(hdr).texture;
-        scene.environment = envMap; // only IBL, keep gradient background
+        scene.environment = envMap;             // reflections only; keep CSS bg
         hdr.dispose(); pmrem.dispose();
         hdrProgress = 1; updateProgress();
       },
@@ -338,7 +357,7 @@
     (gltf) => {
       model = gltf.scene;
 
-      // ---- Center, scale, and place model so its BOTTOM sits at y=0 ----
+      // Center & scale to ~unit, then rest on ground(y=0)
       const preBox = new THREE.Box3().setFromObject(model);
       const preSize = new THREE.Vector3(); preBox.getSize(preSize);
       const preCenter = new THREE.Vector3(); preBox.getCenter(preCenter);
@@ -348,35 +367,33 @@
       model.position.sub(preCenter.multiplyScalar(scale));
 
       const box = new THREE.Box3().setFromObject(model);
-      const minY = box.min.y;
-      model.position.y -= minY; // bottom to y=0
+      model.position.y -= box.min.y; // bottom at y=0
 
+      // Shadow + dim reflections
       model.traverse((o)=>{
         if (o.isMesh){
           o.castShadow = true;
-          o.receiveShadow = false;
-          if (o.material && 'envMapIntensity' in o.material) {
-            o.material.envMapIntensity = 0.22;
-          }
+          if (o.material && 'envMapIntensity' in o.material) o.material.envMapIntensity = 0.22;
         }
       });
 
-      scene.add(model);
+      stage.add(model);
 
-      // Tighten shadow camera
+      // Fit contact shadow circle to model footprint
       const tight = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3(); tight.getSize(size);
-      const radius = Math.max(size.x, size.z) * 0.75 + 0.6;
-      keyLight.shadow.camera.left   = -radius;
-      keyLight.shadow.camera.right  =  radius;
-      keyLight.shadow.camera.top    =  radius;
-      keyLight.shadow.camera.bottom = -radius;
+      const radius = Math.max(size.x, size.z) * 0.62;      // footprint radius
+      contactMesh.scale.set(radius, 1, radius);
+
+      // tighten shadow camera
+      keyLight.target.position.set(0, stage.position.y, 0);
+      const r = Math.max(size.x, size.z) * 0.75 + 0.6;
+      keyLight.shadow.camera.left   = -r;
+      keyLight.shadow.camera.right  =  r;
+      keyLight.shadow.camera.top    =  r;
+      keyLight.shadow.camera.bottom = -r;
       keyLight.shadow.camera.near   = 0.1;
       keyLight.shadow.camera.far    = 10;
-      keyLight.target.position.set(0, 0.0, 0);
-
-      // Fit contact shadow to model footprint
-      fitContactShadowToModel(model);
 
       modelProgress = 1; updateProgress();
 
@@ -429,7 +446,13 @@
     const p = scrollProgress();                 // 0–1
     const angleDeg = p * 360.0;
 
-    if(model) model.rotation.y = p * Math.PI * 2;
+    if(model){
+      model.rotation.y = p * Math.PI * 2;
+
+      // Slight parallax on contact shadow with rotation (very subtle)
+      const wobble = Math.sin(p * Math.PI * 2) * 0.05;
+      contactMesh.rotation.z = wobble * 0.15;
+    }
 
     // Title fade near top
     const fadePoint = window.innerHeight * 0.4;
@@ -448,11 +471,6 @@
     revealEl.style.transform = `translateY(${(1 - t) * 20}px)`;
     bgDark.style.opacity = (t * 1.0).toFixed(2);
 
-    // Strengthen title pill slightly as background darkens
-    const titleBgAlpha = 0.6 + t * 0.2;
-    titleEl.style.background = `rgba(255,255,255,${titleBgAlpha.toFixed(2)})`;
-    titleEl.style.boxShadow = `0 4px 18px rgba(0,0,0,${(0.08 + t*0.12).toFixed(2)})`;
-
     renderer.render(scene, camera);
   }
 
@@ -463,6 +481,5 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 </script>
-
 </body>
 </html>
