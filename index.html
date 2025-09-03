@@ -14,7 +14,7 @@
     }
     html, body{ margin:0; background:linear-gradient(180deg,var(--bg-light),var(--bg-dark)); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; overflow-x:hidden; }
 
-    /* Dark overlay that fades in after the photo reveal */
+    /* Dark overlay after reveal */
     #bgDark{ position:fixed; inset:0; z-index:4; background:#000; opacity:0; pointer-events:none; transition:opacity .25s linear; }
 
     /* Navbar */
@@ -27,7 +27,7 @@
     /* Title pill */
     header#title{ position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:40; font-size:clamp(28px,6vw,56px); font-weight:700; letter-spacing:.02em; color:var(--text); pointer-events:none; background:rgba(255,255,255,.6); padding:10px 18px; border-radius:14px; border:1px solid var(--panel-border); box-shadow:0 4px 18px rgba(0,0,0,.08); transition:opacity .2s linear, background .2s linear, box-shadow .2s linear; }
 
-    /* Fixed canvas hero */
+    /* Fixed 3D hero */
     #stage{ position:fixed; inset:0; width:100%; height:100%; z-index:5; pointer-events:none; transition:filter .12s linear; }
 
     /* Content */
@@ -56,9 +56,6 @@
     /* Extra scroll so we hit 360° */
     .spacer{ height:450vh; }
 
-    /* Debug chip (you can hide later) */
-    #log{ position:fixed; bottom:18px; left:18px; z-index:70; background:rgba(0,0,0,.72); color:#9cf19b; padding:6px 10px; border-radius:8px; font:12px ui-monospace; }
-
     /* ===== Loader overlay ===== */
     #loader{ position:fixed; inset:0; z-index:80; display:grid; place-items:center; background:linear-gradient(180deg, var(--bg-light), var(--bg-dark)); transition:opacity .35s ease; }
     #loader.hide{ opacity:0; pointer-events:none; }
@@ -74,6 +71,13 @@
     /* Scroll hint chip */
     .scroll-hint{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:50; background:rgba(255,255,255,.9); border:1px solid var(--panel-border); border-radius:999px; padding:8px 14px; font:500 13px/1 ui-sans-serif; box-shadow:0 6px 16px rgba(0,0,0,.08); opacity:0; transition:opacity .35s ease; }
     .scroll-hint.show{ opacity:1; }
+
+    /* ===== Entry overlay with lightbulb ===== */
+    #entry{ position:fixed; inset:0; z-index:70; display:grid; place-items:center; background:rgba(255,255,255,.55); backdrop-filter: blur(8px); transition:opacity .35s ease; }
+    #entry.hide{ opacity:0; pointer-events:none; }
+    .entry-card{ display:flex; flex-direction:column; align-items:center; gap:14px; background:#fff; border:1px solid var(--panel-border); border-radius:18px; padding:22px 26px; box-shadow:0 10px 28px rgba(0,0,0,.12); }
+    .entry-btn{ display:flex; align-items:center; gap:10px; padding:10px 16px; border-radius:12px; border:1px solid var(--panel-border); background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff; font-weight:700; cursor:pointer; box-shadow:0 8px 18px rgba(0,0,0,.1); }
+    .entry-btn svg{ width:20px; height:20px; }
   </style>
 </head>
 <body>
@@ -90,7 +94,23 @@
     </div>
   </div>
 
-  <!-- Background darkener (after reveal) -->
+  <!-- Entry (click to start) -->
+  <div id="entry" aria-hidden="true">
+    <div class="entry-card">
+      <div style="font-weight:800; font-size:18px;">Welcome to Know-Hub</div>
+      <button id="enterBtn" class="entry-btn">
+        <!-- lightbulb icon -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18h6M10 22h4"/>
+          <path d="M2 11a10 10 0 1 1 20 0c0 3.2-1.6 5.2-3.5 6.8-.8.7-1.5 1.7-1.5 2.7H9c0-1-0.7-2-1.5-2.7C3.6 16.2 2 14.2 2 11z"/>
+        </svg>
+        Enter Know-Hub
+      </button>
+      <div style="font-size:12px; color:#666;">Click to begin the scroll experience</div>
+    </div>
+  </div>
+
+  <!-- Background darkener -->
   <div id="bgDark"></div>
 
   <!-- Navbar -->
@@ -179,6 +199,8 @@
     const canvasEl = document.getElementById('stage');
     const bgDark   = document.getElementById('bgDark');
     const revealEl = document.getElementById('revealSection');
+    const entryEl  = document.getElementById('entry');
+    const enterBtn = document.getElementById('enterBtn');
 
     // Loader UI refs
     const loaderEl = document.getElementById('loader');
@@ -199,11 +221,39 @@
     const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, canvas: canvasEl });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.physicallyCorrectLights = true;                // ✅ physically-correct lighting
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;     // ✅ Filmic curve
+    renderer.toneMappingExposure = 0.95;                    // ✅ slightly dimmer HDRI
     renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.shadowMap.enabled = true;                      // ✅ soft shadows
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xaaaaaa, 0.35));
+    // Studio lights (key / fill / rim)
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.3);
+    keyLight.position.set(0.6, 1.8, 2.2);
+    keyLight.castShadow = true;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    fillLight.position.set(-2.0, 1.0, -1.5);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    rimLight.position.set(1.6, 1.2, -2.2);
+    scene.add(rimLight);
+
+    // Subtle ambient to lift lows
+    scene.add(new THREE.AmbientLight(0xffffff, 0.15));
+
+    // Ground shadow catcher (anchors model)
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(10,10),
+      new THREE.ShadowMaterial({ opacity: 0.22 })
+    );
+    ground.rotation.x = -Math.PI/2;
+    ground.position.y = -0.5;
+    ground.receiveShadow = true;
+    scene.add(ground);
 
     // Combined progress (rough weighting: HDR 30%, Model 70%)
     let hdrProgress = 0, modelProgress = 0;
@@ -221,12 +271,11 @@
       .load('studio_small_08_1k.hdr',
         (hdr) => {
           const envMap = pmrem.fromEquirectangular(hdr).texture;
-          scene.environment = envMap;
+          scene.environment = envMap;              // image-based lighting
           hdr.dispose(); pmrem.dispose();
           hdrProgress = 1; updateProgress();
         },
         (xhr) => {
-          // xhr.total can be 0 sometimes; treat as best effort
           hdrProgress = xhr && xhr.total ? xhr.loaded / xhr.total : Math.min(1, hdrProgress + 0.02);
           updateProgress();
         },
@@ -250,22 +299,41 @@
         model.position.sub(center.multiplyScalar(scale));
         model.position.y += 0.5;
 
+        // Better reflections & shadows
+        model.traverse((o)=>{
+          if(o.isMesh){
+            o.castShadow = true;
+            if(o.material && 'envMapIntensity' in o.material){
+              o.material.envMapIntensity = 0.6;   // ✅ dims HDR reflections slightly
+            }
+          }
+        });
+
         scene.add(model);
         modelProgress = 1; updateProgress();
 
-        // Tiny delay for polish, then hide loader & show scroll hint
+        // Hide loader, then show Entry card
         setTimeout(()=> {
           loaderEl.classList.add('hide');
-          setTimeout(()=> hint.classList.add('show'), 200);
+          // wait a touch so fade feels nice
+          setTimeout(()=> entryEl.classList.remove('hide'), 180);
         }, 250);
+
         animate();
       },
       (xhr) => {
         modelProgress = xhr && xhr.total ? xhr.loaded / xhr.total : Math.min(1, modelProgress + 0.02);
         updateProgress();
       },
-      (err) => { console.error('Model load error', err); modelProgress = 1; updateProgress(); loaderEl.classList.add('hide'); }
+      (err) => { console.error('Model load error', err); modelProgress = 1; updateProgress(); loaderEl.classList.add('hide'); entryEl.classList.remove('hide'); }
     );
+
+    // Entry behavior
+    enterBtn.addEventListener('click', ()=>{
+      entryEl.classList.add('hide');      // dismiss overlay
+      hint.classList.add('show');         // show “Scroll ↓” chip
+      setTimeout(()=> hint.classList.remove('show'), 2200);
+    });
 
     // Helpers
     function scrollProgress(){
@@ -293,9 +361,6 @@
       const angleDeg = p * 360.0;
 
       if(model) model.rotation.y = p * Math.PI * 2;
-
-      // Hide scroll hint once user scrolls a bit
-      if (p > 0.02) hint.classList.remove('show');
 
       // Title fade near top
       const fadePoint = window.innerHeight * 0.4;
