@@ -15,37 +15,77 @@
     html, body{ margin:0; background:linear-gradient(180deg,var(--bg-light),var(--bg-dark)); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; overflow-x:hidden; }
 
     /* Navbar */
-    nav{ position:fixed; inset:16px 16px auto 16px; height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:80; background:rgba(255,255,255,.75); border:1px solid var(--panel-border); border-radius:14px; backdrop-filter:blur(10px); box-shadow:0 4px 16px rgba(0,0,0,.06); }
+    nav{ position:fixed; inset:16px 16px auto 16px; height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:100; background:rgba(255,255,255,.75); border:1px solid var(--panel-border); border-radius:14px; backdrop-filter:blur(10px); box-shadow:0 4px 16px rgba(0,0,0,.06); }
     .brand{ font-weight:700; font-size:18px; background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
     .nav-links{ display:flex; gap:12px; }
     .nav-btn{ padding:8px 14px; border-radius:10px; font-weight:500; cursor:pointer; background:#fff; border:1px solid var(--panel-border); color:var(--text); text-decoration:none; transition:background .15s ease, transform .15s ease, box-shadow .15s ease; }
     .nav-btn:hover{ background:#f0f0f0; transform:translateY(-1px); box-shadow:0 6px 14px rgba(0,0,0,.08); }
     .nav-btn.active{ border-color:transparent; background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff; }
 
-    /* Page title */
-    header#title{ position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:70; font-size:clamp(24px,5vw,48px); font-weight:800; letter-spacing:.02em; background:rgba(255,255,255,.7); padding:10px 18px; border:1px solid var(--panel-border); border-radius:14px; box-shadow:0 4px 18px rgba(0,0,0,.08); }
+    /* Floating page title */
+    header#title{ position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:90; font-size:clamp(24px,5vw,48px); font-weight:800; letter-spacing:.02em; background:rgba(255,255,255,.7); padding:10px 18px; border:1px solid var(--panel-border); border-radius:14px; box-shadow:0 4px 18px rgba(0,0,0,.08); }
 
-    /* HERO SCRUB SECTION (first thing) */
-    /* Makes a tall section so user scroll “consumes” the animation while card stays pinned */
-    #heroScrub{
-      position:relative;
-      height: 300vh;               /* length of the scrub; raise/lower for longer/shorter */
-      padding-top: 140px;          /* clear the fixed title/nav */
-      z-index:40;
+    /* 1) HERO VIDEO SECTION */
+    #hero{
+      position:relative; height:100vh; overflow:hidden;
     }
-    /* The pinned card that follows the page until scrub completes */
-    #heroPin{
+    #hero video{
+      position:absolute; inset:0; width:100%; height:100%;
+      object-fit:cover; object-position:center;
+      filter:contrast(1.02) saturate(1.02);
+    }
+    /* Optional overlay gradient for legibility */
+    #hero::after{
+      content:""; position:absolute; inset:0;
+      background:linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.35) 60%, rgba(0,0,0,.45));
+      pointer-events:none;
+    }
+    #heroContent{
+      position:relative; z-index:2;
+      height:100%; display:grid; place-items:center; text-align:center; color:#fff;
+      padding:120px 20px 40px; /* keep clear of navbar */
+    }
+    .heroInner{
+      max-width:1000px; margin:0 auto;
+      backdrop-filter: blur(2px);
+    }
+    .heroTitle{
+      font-weight:900; letter-spacing:.01em;
+      font-size:clamp(36px,7vw,72px);
+      margin:0 0 10px 0;
+      background:linear-gradient(90deg,#fff, #d8ecff);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .heroSub{
+      font-size:clamp(16px,2.2vw,20px); opacity:.95; margin:0 auto;
+      color: #f1f5f9;
+      max-width:840px;
+    }
+    .heroHint{
+      position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+      font:12px ui-monospace; color:#e2e8f0; opacity:.9;
+      background:rgba(0,0,0,.35); padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.18);
+    }
+
+    /* 2) IMAGE-SEQUENCE SCRUB SECTION */
+    #seqScrub{
+      position:relative;
+      height: 320vh;               /* length of scrub; increase for longer */
+      padding-top: 140px;          /* clear fixed page title/nav */
+      z-index:40;
+      background:linear-gradient(180deg,var(--bg-light),var(--bg-dark));
+    }
+    #seqPin{
       position: sticky;
-      top: 110px;                  /* sits just under your fixed page title */
+      top: 110px;                  /* sits under the fixed title */
       display:flex; justify-content:center;
     }
-    /* Big centered editorial-style card */
     #lottieCard{
-      width: min(92vw, 1200px);    /* bigger */
+      width: min(94vw, 1280px);    /* bigger hero card */
       background:var(--panel);
       border:1px solid var(--panel-border);
       border-radius:20px;
-      box-shadow:0 12px 28px rgba(0,0,0,.10);
+      box-shadow:0 14px 30px rgba(0,0,0,.12);
       padding:20px 20px 24px;
       text-align:center;
       opacity:0; transform:translateY(10px);
@@ -60,31 +100,31 @@
     }
     #lottieHolder{
       width:100%;
-      aspect-ratio:16/9;           /* big hero */
+      aspect-ratio:16/9;
       border-radius:14px;
       overflow:hidden;
-      filter: drop-shadow(0 8px 24px rgba(0,0,0,.12));
       background:#f6f7fb;          /* subtle bg while canvas warms up */
+      filter: drop-shadow(0 8px 24px rgba(0,0,0,.12));
     }
 
-    /* Main content after the hero */
+    /* 3) CONTENT AFTER SEQUENCE */
     .wrap{ max-width:1000px; margin:0 auto; padding:40px 20px 60px; position:relative; z-index:20; }
     section{ margin:120px 0; }
     .panel{ border-radius:16px; background:var(--panel); padding:28px; border:1px solid var(--panel-border); box-shadow:0 6px 18px rgba(0,0,0,.06); }
     .panel h2{ margin:0 0 8px 0; }
     .muted{ color:var(--muted); }
 
-    /* Loading overlay (no button) */
+    /* Page loading overlay */
     #pageLoader{
       position:fixed; inset:0;
       display:grid; place-items:center;
       background:linear-gradient(180deg,var(--bg-light),var(--bg-dark));
-      z-index:90;
+      z-index:120;
       transition:opacity .35s ease, visibility .35s ease;
     }
     #pageLoader.hidden{ opacity:0; visibility:hidden; }
     .loaderCard{
-      background:rgba(255,255,255,.9);
+      background:rgba(255,255,255,.92);
       border:1px solid var(--panel-border);
       border-radius:16px;
       padding:18px 22px;
@@ -97,8 +137,8 @@
       animation:spin .9s linear infinite; }
     @keyframes spin{ to{ transform:rotate(360deg); } }
 
-    /* Debug/status chip (optional) */
-    #chip{ position:fixed; bottom:16px; left:16px; z-index:65; background:rgba(0,0,0,.75); color:#a7f3a7; font:12px ui-monospace; padding:6px 10px; border-radius:8px; }
+    /* Status chip (optional) */
+    #chip{ position:fixed; bottom:16px; left:16px; z-index:110; background:rgba(0,0,0,.75); color:#a7f3a7; font:12px ui-monospace; padding:6px 10px; border-radius:8px; }
   </style>
 </head>
 <body>
@@ -113,12 +153,27 @@
     </div>
   </nav>
 
-  <!-- Page title -->
+  <!-- Floating page title -->
   <header id="title">Products</header>
 
-  <!-- FIRST THING: hero scrub section -->
-  <section id="heroScrub">
-    <div id="heroPin">
+<!-- 1) HERO with VIDEO background -->
+<section id="hero" aria-label="Welcome">
+  <video autoplay muted loop playsinline preload="auto" poster="videos/hero_poster.jpg">
+    <source src="videos/yourvideo.webm" type="video/webm">
+    <source src="videos/yourvideo.mp4" type="video/mp4">
+  </video>
+  <div id="heroContent">
+    <div class="heroInner">
+      <h1 class="heroTitle">Welcome to Know-Hub</h1>
+      <p class="heroSub">A modern knowledge platform. Scroll to explore our animated product story.</p>
+    </div>
+    <div class="heroHint">Scroll ↓</div>
+  </div>
+</section>
+
+  <!-- 2) IMAGE SEQUENCE scrub (pinned) -->
+  <section id="seqScrub" aria-label="Product Animation">
+    <div id="seqPin">
       <div id="lottieCard" aria-hidden="true">
         <div id="lottieTitle">Demo Animation</div>
         <div id="lottieHolder"></div>
@@ -126,7 +181,7 @@
     </div>
   </section>
 
-  <!-- Page loading overlay (auto hides when images ready) -->
+  <!-- Page loading overlay -->
   <div id="pageLoader">
     <div class="loaderCard">
       <div class="spinner" aria-hidden="true"></div>
@@ -134,18 +189,18 @@
     </div>
   </div>
 
-  <!-- Content AFTER the animation finishes scrubbing -->
+  <!-- 3) Content after sequence -->
   <div class="wrap">
     <section class="panel">
-      <h2>Scroll-scrubbed Animation</h2>
-      <p class="muted">
-        JSON at <code>/lottie/data.json</code>, images at <code>/lottie/images</code>:
-        <code>seq_0_0.png</code>…<code>seq_0_229.png</code>.
-      </p>
+      <h2>What you saw</h2>
+      <p class="muted">We used a scroll-scrubbed image sequence. The card stayed centered and pinned while you scrolled the frames. After the last frame, the page continued.</p>
     </section>
     <section class="panel">
-      <h2>How it Works</h2>
-      <p>Scroll inside the tall hero section; the card stays pinned and scrubs frames. When the section ends, the card scrolls away and the page continues.</p>
+      <h2>How to wire assets</h2>
+      <p class="muted">
+        JSON at <code>/lottie/data.json</code>, images at <code>/lottie/images</code>
+        as <code>seq_0_0.png</code>…<code>seq_0_229.png</code>. Video at <code>/media/hero.mp4</code> (plus optional <code>hero.webm</code> and <code>hero_poster.jpg</code>).
+      </p>
     </section>
   </div>
 
@@ -157,7 +212,7 @@
     const chip = document.getElementById('chip');
     const pageLoader = document.getElementById('pageLoader');
     const lottieCard = document.getElementById('lottieCard');
-    const hero = document.getElementById('heroScrub');
+    const seqSection = document.getElementById('seqScrub');
 
     function loadLottie(src){
       return new Promise((resolve, reject)=>{
@@ -200,7 +255,7 @@
         return;
       }
 
-      // Reveal card once images are ready (fallback timer included)
+      // Reveal when images ready (with fallback timer)
       let revealed = false;
       const reveal = () => {
         if (revealed) return;
@@ -212,27 +267,28 @@
       anim.addEventListener('loaded_images', reveal);
       setTimeout(reveal, 2500);
 
-      // Determine total frames (prefer counting sequence images)
+      // Determine frame count (prefer explicit sequence count)
       let TOTAL_FRAMES = await getSequenceFrameCount(jsonPath);
       if(!TOTAL_FRAMES){
         TOTAL_FRAMES = Math.max(1, Math.floor(anim.getDuration(true)));
       }
 
-      // Slower, eased scrub
+      // Eased scrubbing (slower, smoother)
       let targetFrame = 0;
       let currentFrame = 0;
       const EASE = 0.12; // lower = slower
 
-      // Progress ONLY within the hero section; once you exit, the card scrolls away.
-      function heroProgress(){
-        const rect = hero.getBoundingClientRect();
+      // Progress only inside the sequence section.
+      // Card is sticky there; once section ends, it releases and page continues.
+      function sectionProgress(){
+        const rect = seqSection.getBoundingClientRect();
         const total = rect.height - window.innerHeight;
         const passed = Math.min(Math.max(-rect.top, 0), total);
-        return total > 0 ? passed / total : 0; // 0..1 across the hero
+        return total > 0 ? passed / total : 0;   // 0..1 within section
       }
 
       function updateTargetFromScroll(){
-        const p = Math.max(0, Math.min(1, heroProgress()));
+        const p = Math.max(0, Math.min(1, sectionProgress()));
         targetFrame = p * (TOTAL_FRAMES - 1);
       }
 
@@ -242,7 +298,7 @@
         requestAnimationFrame(tick);
       }
 
-      // Start
+      // Start scrubber
       updateTargetFromScroll();
       anim.goToAndStop(0, true);
       requestAnimationFrame(tick);
