@@ -97,16 +97,19 @@
   <script>
     const chip = document.getElementById('chip');
 
-    // Try JSON first, then .lottie bundle as fallback
     function loadLottie(src){
       return new Promise((resolve, reject)=>{
         try{
           const anim = lottie.loadAnimation({
             container: document.getElementById('lottieHolder'),
-            renderer: 'svg',
+            renderer: 'canvas', // use canvas for image sequences
             loop: false,
             autoplay: false,
-            path: src
+            path: src,
+            rendererSettings: {
+              preserveAspectRatio: 'xMidYMid meet',
+              progressiveLoad: true
+            }
           });
           anim.addEventListener('data_ready', ()=> resolve(anim));
           anim.addEventListener('data_failed', ()=> reject(new Error('data_failed')));
@@ -115,18 +118,26 @@
       });
     }
 
+    async function getSequenceFrameCount(src){
+      const res = await fetch(src, { cache: 'no-store' });
+      const json = await res.json();
+      return (json.assets || []).filter(a => a.t === 'seq').length;
+    }
+
     (async function init(){
+      const jsonPath = 'lottie/data.json';
       let anim;
       try{
-        anim = await loadLottie('lottie/lottie.json');
-      }catch(_){
-        try{
-          anim = await loadLottie('lottie/lottie.lottie');
-        }catch(e){
-          chip.textContent = 'Failed to load /lottie/lottie.(json|lottie)';
-          console.error(e);
-          return;
-        }
+        anim = await loadLottie(jsonPath);
+      }catch(e){
+        chip.textContent = 'Failed to load lottie/data.json';
+        console.error(e);
+        return;
+      }
+
+      let TOTAL_FRAMES = await getSequenceFrameCount(jsonPath);
+      if(!TOTAL_FRAMES){
+        TOTAL_FRAMES = Math.floor(anim.getDuration(true));
       }
 
       chip.textContent = 'Scroll to scrub ↓';
@@ -138,12 +149,10 @@
 
       function onScroll(){
         const p = Math.max(0, Math.min(1, progress()));
-        const total = anim.getDuration(true); // totalFrames
-        const frame = Math.floor(p * (total - 1));
+        const frame = Math.floor(p * (TOTAL_FRAMES - 1));
         anim.goToAndStop(frame, true);
       }
 
-      // First frame set + listeners
       onScroll();
       window.addEventListener('scroll', onScroll, { passive: true });
       window.addEventListener('resize', onScroll);
@@ -151,3 +160,5 @@
   </script>
 </body>
 </html>
+
+
