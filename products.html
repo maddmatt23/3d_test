@@ -14,8 +14,8 @@
     }
     html, body{ margin:0; background:linear-gradient(180deg,var(--bg-light),var(--bg-dark)); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; overflow-x:hidden; }
 
-    /* Navbar (same style as home) */
-    nav{ position:fixed; inset:16px 16px auto 16px; height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:60; background:rgba(255,255,255,.75); border:1px solid var(--panel-border); border-radius:14px; backdrop-filter:blur(10px); box-shadow:0 4px 16px rgba(0,0,0,.06); }
+    /* Navbar */
+    nav{ position:fixed; inset:16px 16px auto 16px; height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 16px; z-index:80; background:rgba(255,255,255,.75); border:1px solid var(--panel-border); border-radius:14px; backdrop-filter:blur(10px); box-shadow:0 4px 16px rgba(0,0,0,.06); }
     .brand{ font-weight:700; font-size:18px; background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
     .nav-links{ display:flex; gap:12px; }
     .nav-btn{ padding:8px 14px; border-radius:10px; font-weight:500; cursor:pointer; background:#fff; border:1px solid var(--panel-border); color:var(--text); text-decoration:none; transition:background .15s ease, transform .15s ease, box-shadow .15s ease; }
@@ -23,30 +23,92 @@
     .nav-btn.active{ border-color:transparent; background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#fff; }
 
     /* Title */
-    header#title{ position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:40; font-size:clamp(24px,5vw,48px); font-weight:800; letter-spacing:.02em; background:rgba(255,255,255,.7); padding:10px 18px; border:1px solid var(--panel-border); border-radius:14px; box-shadow:0 4px 18px rgba(0,0,0,.08); }
+    header#title{ position:fixed; top:90px; left:50%; transform:translateX(-50%); z-index:70; font-size:clamp(24px,5vw,48px); font-weight:800; letter-spacing:.02em; background:rgba(255,255,255,.7); padding:10px 18px; border:1px solid var(--panel-border); border-radius:14px; box-shadow:0 4px 18px rgba(0,0,0,.08); }
 
-    /* Lottie stage: fixed, centered, behind content */
-    #lottieStage{
-      position:fixed; inset:0; z-index:5; display:grid; place-items:center; pointer-events:none;
+    /* Right rail Lottie box (boxed together) */
+    #lottieBox{
+      position:fixed;
+      right:16px;
+      top:140px;
+      width:min(520px, 42vw);
+      z-index:60;
+      background:var(--panel);
+      border:1px solid var(--panel-border);
+      border-radius:16px;
+      box-shadow:0 10px 24px rgba(0,0,0,.08);
+      padding:12px 12px 16px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      opacity:0;            /* fade in after load */
+      transform:translateY(8px);
+      transition:opacity .35s ease, transform .35s ease;
+      pointer-events:none;  /* it’s decorative; avoid trapping scroll */
+    }
+    #lottieBox.show{
+      opacity:1;
+      transform:translateY(0);
+      pointer-events:none;
+    }
+    #lottieTitle{
+      position:sticky; top:0;
+      background:linear-gradient(90deg, rgba(255,255,255,.9), rgba(255,255,255,.75));
+      border:1px solid var(--panel-border);
+      border-radius:12px;
+      padding:8px 12px;
+      font-weight:700;
+      font-size:14px;
+      color:var(--text);
+      box-shadow:0 6px 16px rgba(0,0,0,.05);
+      backdrop-filter:blur(6px);
     }
     #lottieHolder{
-      width:min(1100px, 92vw);
+      width:100%;
       aspect-ratio:16/9;
-      filter: drop-shadow(0 10px 40px rgba(0,0,0,.15));
+      filter: drop-shadow(0 10px 24px rgba(0,0,0,.12));
+      border-radius:12px;
+      overflow:hidden;
     }
 
-    /* Content */
+    /* Main content */
     .wrap{ max-width:1000px; margin:0 auto; padding:140px 20px 60px; position:relative; z-index:20; }
     section{ margin:120px 0; }
     .panel{ border-radius:16px; background:var(--panel); padding:28px; border:1px solid var(--panel-border); box-shadow:0 6px 18px rgba(0,0,0,.06); }
     .panel h2{ margin:0 0 8px 0; }
     .muted{ color:var(--muted); }
 
-    /* Give enough scroll room to scrub the whole animation */
+    /* Provide scroll room */
     .spacer{ height:380vh; }
 
-    /* Loader chip */
-    #chip{ position:fixed; bottom:16px; left:16px; z-index:60; background:rgba(0,0,0,.75); color:#a7f3a7; font:12px ui-monospace; padding:6px 10px; border-radius:8px; }
+    /* Loading overlay (no button) */
+    #pageLoader{
+      position:fixed; inset:0;
+      display:grid; place-items:center;
+      background:linear-gradient(180deg,var(--bg-light),var(--bg-dark));
+      z-index:90;
+      transition:opacity .35s ease, visibility .35s ease;
+    }
+    #pageLoader.hidden{ opacity:0; visibility:hidden; }
+
+    .loaderCard{
+      background:rgba(255,255,255,.85);
+      border:1px solid var(--panel-border);
+      border-radius:16px;
+      padding:18px 22px;
+      box-shadow:0 10px 24px rgba(0,0,0,.08);
+      display:flex; align-items:center; gap:14px;
+      font:14px ui-monospace;
+      color:#333;
+    }
+    .spinner{
+      width:18px; height:18px; border-radius:50%;
+      border:3px solid #ddd; border-top-color:var(--accent2);
+      animation:spin 0.9s linear infinite;
+    }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+
+    /* Loader chip (kept, but subtle) */
+    #chip{ position:fixed; bottom:16px; left:16px; z-index:65; background:rgba(0,0,0,.75); color:#a7f3a7; font:12px ui-monospace; padding:6px 10px; border-radius:8px; }
   </style>
 </head>
 <body>
@@ -64,26 +126,26 @@
   <!-- Title -->
   <header id="title">Products</header>
 
-  <!-- Fixed Lottie stage -->
-  <div id="lottieStage">
+  <!-- Right-rail Lottie box -->
+  <aside id="lottieBox" aria-hidden="true">
+    <div id="lottieTitle">Demo Animation</div>
     <div id="lottieHolder"></div>
-  </div>
+  </aside>
 
-  <!-- Top content -->
+  <!-- Top content (left column area) -->
   <div class="wrap">
     <section class="panel">
       <h2>Scroll-scrubbed Animation</h2>
-     <p class="muted">
-  Drop a Lottie file in <code>/lottie</code> and name it <code>data.json</code>.
-  Put the images in <code>/lottie/images</code> as <code>seq_0_0.png</code>…<code>seq_0_229.png</code>.
-  As you scroll, the animation advances.
-</p>
-
+      <p class="muted">
+        Drop a Lottie file in <code>/lottie</code> and name it <code>data.json</code>.
+        Put the images in <code>/lottie/images</code> as <code>seq_0_0.png</code>…<code>seq_0_229.png</code>.
+        As you scroll, the animation advances.
+      </p>
     </section>
 
     <section class="panel">
       <h2>How it Works</h2>
-      <p>We map page scroll (0–100%) to the animation’s total frames. The canvas is fixed behind content so it feels like a hero background while you read.</p>
+      <p>We map page scroll (0–100%) to the animation’s frames. The animation sits in a right-rail box, and the title sticks to the top of the box while you read.</p>
     </section>
   </div>
 
@@ -91,8 +153,16 @@
   <div class="wrap">
     <section class="panel">
       <h2>Room for Product Cards</h2>
-      <p class="muted">Add product grids and details here; the animation will keep scrubbing until the bottom.</p>
+      <p class="muted">Add product grids and details here; the animation keeps scrubbing until the bottom.</p>
     </section>
+  </div>
+
+  <!-- Page loading overlay (no button; auto-hides) -->
+  <div id="pageLoader">
+    <div class="loaderCard">
+      <div class="spinner" aria-hidden="true"></div>
+      <div>Loading animation…</div>
+    </div>
   </div>
 
   <div id="chip">Loading Lottie…</div>
@@ -101,13 +171,15 @@
   <script src="libs/lottie.min.js"></script>
   <script>
     const chip = document.getElementById('chip');
+    const pageLoader = document.getElementById('pageLoader');
+    const lottieBox = document.getElementById('lottieBox');
 
     function loadLottie(src){
       return new Promise((resolve, reject)=>{
         try{
           const anim = lottie.loadAnimation({
             container: document.getElementById('lottieHolder'),
-            renderer: 'canvas', // use canvas for image sequences
+            renderer: 'canvas',           // canvas is best for image sequences
             loop: false,
             autoplay: false,
             path: src,
@@ -116,6 +188,7 @@
               progressiveLoad: true
             }
           });
+          // Resolve when JSON parsed
           anim.addEventListener('data_ready', ()=> resolve(anim));
           anim.addEventListener('data_failed', ()=> reject(new Error('data_failed')));
           anim.addEventListener('error', (e)=> reject(e));
@@ -124,9 +197,11 @@
     }
 
     async function getSequenceFrameCount(src){
-      const res = await fetch(src, { cache: 'no-store' });
-      const json = await res.json();
-      return (json.assets || []).filter(a => a.t === 'seq').length;
+      try{
+        const res = await fetch(src, { cache: 'no-store' });
+        const json = await res.json();
+        return (json.assets || []).filter(a => a.t === 'seq').length || null;
+      }catch { return null; }
     }
 
     (async function init(){
@@ -134,37 +209,65 @@
       let anim;
       try{
         anim = await loadLottie(jsonPath);
+        chip.textContent = 'Loading images…';
       }catch(e){
         chip.textContent = 'Failed to load lottie/data.json';
         console.error(e);
         return;
       }
 
+      // When all images are fetched, hide overlay and show the right-rail box
+      // Not all builds dispatch 'loaded_images', so also set a safety timer.
+      let imagesLoaded = false;
+      const reveal = () => {
+        if (imagesLoaded) return;
+        imagesLoaded = true;
+        pageLoader.classList.add('hidden');
+        lottieBox.classList.add('show');
+        chip.textContent = 'Scroll to scrub ↓';
+      };
+
+      anim.addEventListener('loaded_images', reveal);
+      // Fallback reveal after 2.5s in case event isn't fired by this JSON/export
+      setTimeout(reveal, 2500);
+
+      // Total frames: prefer counting seq images; fallback to comp duration
       let TOTAL_FRAMES = await getSequenceFrameCount(jsonPath);
       if(!TOTAL_FRAMES){
-        TOTAL_FRAMES = Math.floor(anim.getDuration(true));
+        TOTAL_FRAMES = Math.max(1, Math.floor(anim.getDuration(true)));
       }
 
-      chip.textContent = 'Scroll to scrub ↓';
+      // Smooth "slow" scrubbing:
+      // - targetFrame follows scroll instantly
+      // - currentFrame eases toward targetFrame (gives slower feel)
+      let targetFrame = 0;
+      let currentFrame = 0;
+      const EASE = 0.12; // lower = slower catch-up
 
       function progress(){
         const max = document.body.scrollHeight - window.innerHeight;
         return max > 0 ? window.scrollY / max : 0;
       }
 
-      function onScroll(){
+      function updateTargetFromScroll(){
         const p = Math.max(0, Math.min(1, progress()));
-        const frame = Math.floor(p * (TOTAL_FRAMES - 1));
-        anim.goToAndStop(frame, true);
+        targetFrame = p * (TOTAL_FRAMES - 1);
       }
 
-      onScroll();
-      window.addEventListener('scroll', onScroll, { passive: true });
-      window.addEventListener('resize', onScroll);
+      function tick(){
+        // Ease toward target
+        currentFrame += (targetFrame - currentFrame) * EASE;
+        anim.goToAndStop(currentFrame, true);
+        requestAnimationFrame(tick);
+      }
+
+      // Initial set and listeners
+      updateTargetFromScroll();
+      anim.goToAndStop(0, true);
+      requestAnimationFrame(tick);
+      window.addEventListener('scroll', updateTargetFromScroll, { passive:true });
+      window.addEventListener('resize', updateTargetFromScroll);
     })();
   </script>
 </body>
 </html>
-
-
-
