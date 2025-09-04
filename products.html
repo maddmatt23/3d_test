@@ -207,22 +207,21 @@
   <div id="chip">Loading Lottie…</div>
 
   <!-- Lottie library -->
-  <script src="libs/lottie.min.js"></script>
 <script src="libs/lottie.min.js"></script>
 <script>
-  const chip = document.getElementById('chip');
-  const pageLoader = document.getElementById('pageLoader');
-  const lottieCard = document.getElementById('lottieCard');
-  const seqSection = document.getElementById('seqScrub');
-  const holder = document.getElementById('lottieHolder');
+  const chip        = document.getElementById('chip');
+  const pageLoader  = document.getElementById('pageLoader');
+  const lottieCard  = document.getElementById('lottieCard');
+  const seqSection  = document.getElementById('seqScrub');
+  const holder      = document.getElementById('lottieHolder');
 
-  /** Load lottie */
+  /* -------- load lottie -------- */
   function loadLottie(src){
     return new Promise((resolve, reject)=>{
       try{
         const anim = lottie.loadAnimation({
           container: holder,
-          renderer: 'canvas',   // image sequences perform best on canvas
+          renderer: 'canvas',    // canvas is best for image sequences
           loop: false,
           autoplay: false,
           path: src,
@@ -237,11 +236,11 @@
       }catch(e){ reject(e); }
     });
   }
-
   async function getSequenceFrameCount(src){
     try{
       const res = await fetch(src, { cache: 'no-store' });
       const json = await res.json();
+      // count seq assets (e.g., seq_0_0 … seq_0_229) → 230 frames
       return (json.assets || []).filter(a => a.t === 'seq').length || null;
     }catch { return null; }
   }
@@ -249,7 +248,7 @@
   (async function init(){
     const jsonPath = 'lottie/data.json';
 
-    // 1) Boot + loader
+    // Boot + loader
     let anim;
     try{
       anim = await loadLottie(jsonPath);
@@ -271,30 +270,22 @@
     anim.addEventListener('loaded_images', reveal);
     setTimeout(reveal, 2500); // safety reveal
 
-    // 2) Frame math
+    // Frame math
     let TOTAL_FRAMES = await getSequenceFrameCount(jsonPath);
-    if(!TOTAL_FRAMES){
+    if (!TOTAL_FRAMES) {
       TOTAL_FRAMES = Math.max(1, Math.floor(anim.getDuration(true)));
     }
-    let currentFrame = 0;          // what we display
-    let targetFrame  = 0;          // where we want to go
-    let scrubProgress = 0;         // 0..1 “virtual” progress controlled by wheel/touch
-    const EASE = 0.18;             // lower = slower/smoother
+    // You said your last image is seq_0_229 → index 229
+    const LAST_FRAME = TOTAL_FRAMES - 1; // should be 229
+    let currentFrame = 0;
+    let targetFrame  = 0;
+    let progress01   = 0; // 0..1
+    const EASE = 0.2;     // lower = smoother/slower
 
-    // 3) Scrub state machine
-    let scrubbing = false;         // we intercept scroll
-    let completed = false;         // true after reaching last frame once
-    let touchY = null;
+    function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+    function syncTarget(){ targetFrame = progress01 * LAST_FRAME; }
 
-    // Helper: clamp
-    const clamp01 = (v) => Math.max(0, Math.min(1, v));
-
-    // Update target frame from progress
-    function syncTarget(){
-      targetFrame = scrubProgress * (TOTAL_FRAMES - 1);
-    }
-
-    // Animation ticker
+    // animation ticker
     function tick(){
       currentFrame += (targetFrame - currentFrame) * EASE;
       anim.goToAndStop(currentFrame, true);
@@ -303,96 +294,122 @@
     anim.goToAndStop(0, true);
     requestAnimationFrame(tick);
 
-    // 4) Decide when we are “in” the sequence
-    // Enter when the card is largely in view; exit when mostly out.
-    const io = new IntersectionObserver((entries)=>{
-      for (const e of entries){
-        if (e.target !== lottieCard) continue;
-        const mostlyVisible = e.intersectionRatio > 0.6;
-        if (mostlyVisible && !completed){
-          scrubbing = true;         // start intercepting scroll while we play
-        }else if (!mostlyVisible){
-          scrubbing = false;        // release outside the card
+    // --- LOCK LOGIC ---
+    // We *hard lock* the window scroll Y while scrubbing so the page won’t move.
+    let locked     = false;
+    let completed  = false;
+    let lockY      = 0;       // where the page will be held while scrubbing
+    let touchY     = null;
+
+    function computeLockY(){
+      // top of sequence section relative to the page
+      lockY = window.scrollY + seqSection.getBoundingClientRect().top;
+    }
+    computeLockY();
+    window.addEventListener('resize', computeLockY);
+
+    function inSequenceViewport(){
+      const top = seqSection.getBoundingClientRect().top;
+      const bot = seqSection.getBoundingClientRect().bottom;
+      // We engage lock once the section top hits viewport and until the section’s end.
+      return (top <= 0) && (bot >= window.innerHeight);
+    }
+
+    function tryLockOnScroll(){
+      if (completed) return; // once done, don't re-lock on normal scroll
+      if (inSequenceViewport()){
+        // Engage lock and hold scroll position
+        if (!locked){
+          locked = true;
+          // snap to section top so it doesn’t “jiggle”
+          computeLockY();
+          window.scrollTo(0, lockY);
+        }else{
+          // keep it pinned at lockY while locked
+          if (Math.abs(window.scrollY - lockY) > 1) window.scrollTo(0, lockY);
         }
+      }else{
+        locked = false;
       }
-    }, { threshold: [0, 0.25, 0.6, 0.9, 1] });
-    io.observe(lottieCard);
+    }
+    window.addEventListener('scroll', tryLockOnScroll, { passive:true });
 
-    // 5) Wheel handler — eat scroll and convert to progress while scrubbing
+    // Wheel scrubbing
     function onWheel(e){
-      if (!scrubbing) return;
-      // If we already finished once and are at the end, let the page continue
-      if (completed && scrubProgress >= 1 && e.deltaY > 0) return;
+      if (!locked) return;
 
-      e.preventDefault(); // ← stops page from moving
-      // scale can be tuned; higher => fewer scrolls to finish
-      const SCALE = 0.0016;
-      scrubProgress = clamp01(scrubProgress + e.deltaY * SCALE);
-
-      // if user scrolls UP at start, allow escape back to hero
-      if (scrubProgress === 0 && e.deltaY < 0){
-        scrubbing = false; // release so page can scroll up
+      // If completed and user scrolls down, release page
+      if (completed && progress01 >= 1 && e.deltaY > 0) {
+        locked = false;
+        // nudge page 1px so browser continues naturally
+        window.scrollTo(0, lockY + 1);
+        return;
       }
 
+      e.preventDefault(); // <- stops page movement
+      const SCALE = 0.0015; // tweak for scrub distance (lower = longer scrub)
+      progress01 = clamp01(progress01 + e.deltaY * SCALE);
       syncTarget();
 
-      // if we hit the end once, mark complete but keep the last frame showing
-      if (scrubProgress === 1 && !completed){
+      // allow escape upward from the very start
+      if (progress01 === 0 && e.deltaY < 0){
+        locked = false;
+        window.scrollTo(0, lockY - 1);
+      }
+
+      // when we hit the end, snap and pause on LAST_FRAME
+      if (progress01 === 1 && !completed){
         completed = true;
-        // keep scrubbing=false only for the NEXT wheel event to let page continue
-        scrubbing = false;
+        anim.goToAndStop(LAST_FRAME, true); // snap to 229
+        chip.textContent = 'End of sequence';
+        // remain locked until next wheel down, then release in the branch above
       }
     }
 
-    // 6) Touch support
+    // Touch scrubbing
     function onTouchStart(e){
-      if (!scrubbing) return;
+      if (!locked) return;
       touchY = e.touches[0].clientY;
     }
     function onTouchMove(e){
-      if (!scrubbing) return;
+      if (!locked) return;
       if (touchY == null) return;
-      const y = e.touches[0].clientY;
+      const y  = e.touches[0].clientY;
       const dy = touchY - y;
       e.preventDefault();
-      const SCALE = 0.0032; // touch usually needs a bit more
-      scrubProgress = clamp01(scrubProgress + dy * SCALE);
+      const SCALE = 0.003; // touch needs a bit more
+      progress01 = clamp01(progress01 + dy * SCALE);
       touchY = y;
       syncTarget();
-      if (scrubProgress === 1 && !completed){
-        completed = true;
-        scrubbing = false;  // allow page to resume after end
+
+      if (progress01 === 0 && dy < 0){
+        locked = false;
+        window.scrollTo(0, lockY - 1);
       }
-      if (scrubProgress === 0 && dy < 0){
-        scrubbing = false;  // allow page to scroll back up
+      if (progress01 === 1 && !completed){
+        completed = true;
+        anim.goToAndStop(LAST_FRAME, true);
+        chip.textContent = 'End of sequence';
+      }
+      // If completed and user swipes down, release
+      if (completed && progress01 >= 1 && dy > 0){
+        locked = false;
+        window.scrollTo(0, lockY + 1);
       }
     }
     function onTouchEnd(){ touchY = null; }
 
-    // Register listeners (must be non-passive so we can preventDefault)
+    // Register (must be non-passive so we can preventDefault)
     window.addEventListener('wheel', onWheel, { passive:false });
     window.addEventListener('touchstart', onTouchStart, { passive:false });
     window.addEventListener('touchmove', onTouchMove, { passive:false });
     window.addEventListener('touchend', onTouchEnd);
 
-    // 7) Nice-to-have: if user jumps (PgDn/Space/etc.) into the section,
-    // snap into scrubbing at the beginning until they finish.
-    document.addEventListener('keydown', (e)=>{
-      if (completed) return;
-      const rect = lottieCard.getBoundingClientRect();
-      const inView = rect.top < window.innerHeight * 0.9 && rect.bottom > window.innerHeight * 0.1;
-      if (!inView) return;
-      const keys = [' ', 'PageDown', 'ArrowDown'];
-      if (keys.includes(e.key)){
-        e.preventDefault();
-        scrubbing = true;
-        // nudge progress a hair so they see it respond
-        scrubProgress = clamp01(scrubProgress + 0.01);
-        syncTarget();
-      }
-    });
+    // If user jumps right into the section (PgDn etc.), lock immediately
+    tryLockOnScroll();
   })();
 </script>
 </body>
 </html>
+
 
