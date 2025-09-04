@@ -81,7 +81,7 @@
       display:flex; justify-content:center;
     }
     #lottieCard{
-      width: min(94vw, 1280px);    /* bigger hero card */
+      width: min(96vw, 1400px);    /* bigger hero card */
       background:var(--panel);
       border:1px solid var(--panel-border);
       border-radius:20px;
@@ -208,104 +208,191 @@
 
   <!-- Lottie library -->
   <script src="libs/lottie.min.js"></script>
-  <script>
-    const chip = document.getElementById('chip');
-    const pageLoader = document.getElementById('pageLoader');
-    const lottieCard = document.getElementById('lottieCard');
-    const seqSection = document.getElementById('seqScrub');
+<script src="libs/lottie.min.js"></script>
+<script>
+  const chip = document.getElementById('chip');
+  const pageLoader = document.getElementById('pageLoader');
+  const lottieCard = document.getElementById('lottieCard');
+  const seqSection = document.getElementById('seqScrub');
+  const holder = document.getElementById('lottieHolder');
 
-    function loadLottie(src){
-      return new Promise((resolve, reject)=>{
-        try{
-          const anim = lottie.loadAnimation({
-            container: document.getElementById('lottieHolder'),
-            renderer: 'canvas',       // best for image sequences
-            loop: false,
-            autoplay: false,
-            path: src,
-            rendererSettings: {
-              preserveAspectRatio: 'xMidYMid meet',
-              progressiveLoad: true
-            }
-          });
-          anim.addEventListener('data_ready', ()=> resolve(anim));
-          anim.addEventListener('data_failed', ()=> reject(new Error('data_failed')));
-          anim.addEventListener('error', (e)=> reject(e));
-        }catch(e){ reject(e); }
-      });
+  /** Load lottie */
+  function loadLottie(src){
+    return new Promise((resolve, reject)=>{
+      try{
+        const anim = lottie.loadAnimation({
+          container: holder,
+          renderer: 'canvas',   // image sequences perform best on canvas
+          loop: false,
+          autoplay: false,
+          path: src,
+          rendererSettings: {
+            preserveAspectRatio: 'xMidYMid meet',
+            progressiveLoad: true
+          }
+        });
+        anim.addEventListener('data_ready', ()=> resolve(anim));
+        anim.addEventListener('data_failed', ()=> reject(new Error('data_failed')));
+        anim.addEventListener('error', (e)=> reject(e));
+      }catch(e){ reject(e); }
+    });
+  }
+
+  async function getSequenceFrameCount(src){
+    try{
+      const res = await fetch(src, { cache: 'no-store' });
+      const json = await res.json();
+      return (json.assets || []).filter(a => a.t === 'seq').length || null;
+    }catch { return null; }
+  }
+
+  (async function init(){
+    const jsonPath = 'lottie/data.json';
+
+    // 1) Boot + loader
+    let anim;
+    try{
+      anim = await loadLottie(jsonPath);
+      chip.textContent = 'Loading images…';
+    }catch(e){
+      chip.textContent = 'Failed to load lottie/data.json';
+      console.error(e);
+      return;
     }
 
-    async function getSequenceFrameCount(src){
-      try{
-        const res = await fetch(src, { cache: 'no-store' });
-        const json = await res.json();
-        return (json.assets || []).filter(a => a.t === 'seq').length || null;
-      }catch { return null; }
+    let revealed = false;
+    const reveal = () => {
+      if (revealed) return;
+      revealed = true;
+      pageLoader.classList.add('hidden');
+      lottieCard.classList.add('show');
+      chip.textContent = 'Scroll to scrub ↓';
+    };
+    anim.addEventListener('loaded_images', reveal);
+    setTimeout(reveal, 2500); // safety reveal
+
+    // 2) Frame math
+    let TOTAL_FRAMES = await getSequenceFrameCount(jsonPath);
+    if(!TOTAL_FRAMES){
+      TOTAL_FRAMES = Math.max(1, Math.floor(anim.getDuration(true)));
+    }
+    let currentFrame = 0;          // what we display
+    let targetFrame  = 0;          // where we want to go
+    let scrubProgress = 0;         // 0..1 “virtual” progress controlled by wheel/touch
+    const EASE = 0.18;             // lower = slower/smoother
+
+    // 3) Scrub state machine
+    let scrubbing = false;         // we intercept scroll
+    let completed = false;         // true after reaching last frame once
+    let touchY = null;
+
+    // Helper: clamp
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+    // Update target frame from progress
+    function syncTarget(){
+      targetFrame = scrubProgress * (TOTAL_FRAMES - 1);
     }
 
-    (async function init(){
-      const jsonPath = 'lottie/data.json';
-      let anim;
-      try{
-        anim = await loadLottie(jsonPath);
-        chip.textContent = 'Loading images…';
-      }catch(e){
-        chip.textContent = 'Failed to load lottie/data.json';
-        console.error(e);
-        return;
-      }
-
-      // Reveal when images ready (with fallback timer)
-      let revealed = false;
-      const reveal = () => {
-        if (revealed) return;
-        revealed = true;
-        pageLoader.classList.add('hidden');
-        lottieCard.classList.add('show');
-        chip.textContent = 'Scroll to scrub ↓';
-      };
-      anim.addEventListener('loaded_images', reveal);
-      setTimeout(reveal, 2500);
-
-      // Determine frame count (prefer explicit sequence count)
-      let TOTAL_FRAMES = await getSequenceFrameCount(jsonPath);
-      if(!TOTAL_FRAMES){
-        TOTAL_FRAMES = Math.max(1, Math.floor(anim.getDuration(true)));
-      }
-
-      // Eased scrubbing (slower, smoother)
-      let targetFrame = 0;
-      let currentFrame = 0;
-      const EASE = 0.12; // lower = slower
-
-      // Progress only inside the sequence section.
-      // Card is sticky there; once section ends, it releases and page continues.
-      function sectionProgress(){
-        const rect = seqSection.getBoundingClientRect();
-        const total = rect.height - window.innerHeight;
-        const passed = Math.min(Math.max(-rect.top, 0), total);
-        return total > 0 ? passed / total : 0;   // 0..1 within section
-      }
-
-      function updateTargetFromScroll(){
-        const p = Math.max(0, Math.min(1, sectionProgress()));
-        targetFrame = p * (TOTAL_FRAMES - 1);
-      }
-
-      function tick(){
-        currentFrame += (targetFrame - currentFrame) * EASE;
-        anim.goToAndStop(currentFrame, true);
-        requestAnimationFrame(tick);
-      }
-
-      // Start scrubber
-      updateTargetFromScroll();
-      anim.goToAndStop(0, true);
+    // Animation ticker
+    function tick(){
+      currentFrame += (targetFrame - currentFrame) * EASE;
+      anim.goToAndStop(currentFrame, true);
       requestAnimationFrame(tick);
+    }
+    anim.goToAndStop(0, true);
+    requestAnimationFrame(tick);
 
-      window.addEventListener('scroll', updateTargetFromScroll, { passive:true });
-      window.addEventListener('resize', updateTargetFromScroll);
-    })();
-  </script>
+    // 4) Decide when we are “in” the sequence
+    // Enter when the card is largely in view; exit when mostly out.
+    const io = new IntersectionObserver((entries)=>{
+      for (const e of entries){
+        if (e.target !== lottieCard) continue;
+        const mostlyVisible = e.intersectionRatio > 0.6;
+        if (mostlyVisible && !completed){
+          scrubbing = true;         // start intercepting scroll while we play
+        }else if (!mostlyVisible){
+          scrubbing = false;        // release outside the card
+        }
+      }
+    }, { threshold: [0, 0.25, 0.6, 0.9, 1] });
+    io.observe(lottieCard);
+
+    // 5) Wheel handler — eat scroll and convert to progress while scrubbing
+    function onWheel(e){
+      if (!scrubbing) return;
+      // If we already finished once and are at the end, let the page continue
+      if (completed && scrubProgress >= 1 && e.deltaY > 0) return;
+
+      e.preventDefault(); // ← stops page from moving
+      // scale can be tuned; higher => fewer scrolls to finish
+      const SCALE = 0.0016;
+      scrubProgress = clamp01(scrubProgress + e.deltaY * SCALE);
+
+      // if user scrolls UP at start, allow escape back to hero
+      if (scrubProgress === 0 && e.deltaY < 0){
+        scrubbing = false; // release so page can scroll up
+      }
+
+      syncTarget();
+
+      // if we hit the end once, mark complete but keep the last frame showing
+      if (scrubProgress === 1 && !completed){
+        completed = true;
+        // keep scrubbing=false only for the NEXT wheel event to let page continue
+        scrubbing = false;
+      }
+    }
+
+    // 6) Touch support
+    function onTouchStart(e){
+      if (!scrubbing) return;
+      touchY = e.touches[0].clientY;
+    }
+    function onTouchMove(e){
+      if (!scrubbing) return;
+      if (touchY == null) return;
+      const y = e.touches[0].clientY;
+      const dy = touchY - y;
+      e.preventDefault();
+      const SCALE = 0.0032; // touch usually needs a bit more
+      scrubProgress = clamp01(scrubProgress + dy * SCALE);
+      touchY = y;
+      syncTarget();
+      if (scrubProgress === 1 && !completed){
+        completed = true;
+        scrubbing = false;  // allow page to resume after end
+      }
+      if (scrubProgress === 0 && dy < 0){
+        scrubbing = false;  // allow page to scroll back up
+      }
+    }
+    function onTouchEnd(){ touchY = null; }
+
+    // Register listeners (must be non-passive so we can preventDefault)
+    window.addEventListener('wheel', onWheel, { passive:false });
+    window.addEventListener('touchstart', onTouchStart, { passive:false });
+    window.addEventListener('touchmove', onTouchMove, { passive:false });
+    window.addEventListener('touchend', onTouchEnd);
+
+    // 7) Nice-to-have: if user jumps (PgDn/Space/etc.) into the section,
+    // snap into scrubbing at the beginning until they finish.
+    document.addEventListener('keydown', (e)=>{
+      if (completed) return;
+      const rect = lottieCard.getBoundingClientRect();
+      const inView = rect.top < window.innerHeight * 0.9 && rect.bottom > window.innerHeight * 0.1;
+      if (!inView) return;
+      const keys = [' ', 'PageDown', 'ArrowDown'];
+      if (keys.includes(e.key)){
+        e.preventDefault();
+        scrubbing = true;
+        // nudge progress a hair so they see it respond
+        scrubProgress = clamp01(scrubProgress + 0.01);
+        syncTarget();
+      }
+    });
+  })();
+</script>
 </body>
 </html>
+
