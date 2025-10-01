@@ -1,264 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Scroll Sequence • 2_00000 → 2_00100</title>
+  <title>Directional Scroll Sequence (2_00000 → 2_00100)</title>
   <style>
-    :root{
-      --bg:#0b0b0c; --fg:#e7e7ea; --muted:#9a9aa3; --accent:#7dd3fc;
-    }
-    html,body{height:100%; margin:0; background:var(--bg); color:var(--fg);}
-    body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, sans-serif;}
-    .wrapper{height: 600vh;} /* controls total scroll distance */
-    .sticky{
-      position: sticky; top:0; height:100vh; width:100vw; display:grid; place-items:center;
-      background: radial-gradient(1200px 600px at 50% 60%, #151518 10%, #0b0b0c 60%);
-    }
-    canvas{ width: min(100vw, 100vh * var(--aspect)); height: min(100vh, 100vw / var(--aspect));
-            image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; }
-    .hud{ position: fixed; left: 14px; bottom: 14px; padding: 10px 12px; border-radius: 10px;
-          backdrop-filter: blur(6px); background: rgba(20,20,24,.45); color: var(--fg);
-          font-size: 12px; line-height: 1.3; box-shadow: 0 6px 24px rgba(0,0,0,.35);}
-    .hud code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
-    .bar{height:4px; background: rgba(255,255,255,.12); border-radius: 999px; overflow: hidden; margin-top:6px}
-    .bar > span{display:block; height:100%; width:0%; background: linear-gradient(90deg, var(--accent), #60a5fa);} 
-    .help{ position: fixed; right: 14px; bottom: 14px; font-size:12px; color:var(--muted);}
-    a{color:var(--accent); text-decoration: none;}
+    :root { --bg:#000; --hud:rgba(20,20,24,.55); --fg:#e8e8ee; }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);}
+    /* Fullscreen canvas like Apple product pages */
+    canvas{position:fixed; inset:0; width:100vw; height:100vh; background:#000;}
+    .hud{position:fixed; left:12px; bottom:12px; padding:8px 10px; border-radius:10px; backdrop-filter: blur(6px); background:var(--hud); font:12px ui-monospace,Menlo,Consolas,monospace}
+    .bar{height:4px; background:rgba(255,255,255,.12); border-radius:999px; overflow:hidden; margin-top:6px}
+    .bar>span{display:block; height:100%; width:0%; background:linear-gradient(90deg,#7dd3fc,#60a5fa)}
+    .help{position:fixed; right:12px; bottom:12px; font:12px/1.2 system-ui, sans-serif; opacity:.7}
   </style>
 </head>
 <body>
-  <div class="wrapper">
-    <section class="sticky">
-      <canvas id="sequence"></canvas>
-    </section>
+  <canvas id="cv"></canvas>
+  <div class="hud" id="hud">
+    frame <span id="fnum">2_00000</span>
+    <div class="bar"><span id="prog"></span></div>
   </div>
+  <div class="help">Scroll to scrub • Shift+←/→ = ±10 • Tap+drag to scrub</div>
 
-  <div class="hud" id="hud" role="status" aria-live="polite">
-    <div><strong>Scroll Sequence</strong> <span id="range">2_00000–2_00100</span></div>
-    <div>Frame: <code id="frameNum">2_00000</code></div>
-    <div class="bar" aria-hidden="true"><span id="prog"></span></div>
-  </div>
-  <div class="help">Tip: use <kbd>↑</kbd>/<kbd>↓</kbd> or <kbd>←</kbd>/<kbd>→</kbd> to scrub</div>
+<script>
+// ===== CONFIG =====
+const CONFIG = {
+  basePath: './frames/',  // folder containing frames
+  prefix: '2_',           // filename prefix
+  start: 0,               // 0 → makes 2_00000 the first frame
+  end: 100,               // inclusive → last is 2_00100
+  pad: 5,                 // zero padding after underscore
+  ext: 'png',             // your files are .png
+  wheelSensitivity: 0.02, // higher = faster scrub (frames per wheel notch ~ deltaY/100)
+  touchSensitivity: 0.15, // frames per 100px vertical swipe
+  preloadRadius: 8        // how many neighbours to preload
+};
+// ===================
 
-  <script>
-  // ====== CONFIGURE THESE FOR YOUR REPO ======
-  const CONFIG = {
-    // Folder where your frames live (relative to this HTML file or absolute URL)
-    basePath: './frames/',
-    // File name pattern: prefix + zero-padded index → e.g., "2_00000.jpg".
-    prefix: '2_',
-    start: 0,       // start at 0 for 2_00000
-    end: 100,       // end at 100 for 2_00100 (inclusive)
-    pad: 5,         // number of digits after the underscore
-    ext: 'jpg',     // 'jpg' | 'jpeg' | 'png' | 'webp'
-    // If your originals have a known aspect ratio, set it to avoid reflow while loading.
-    // Otherwise, it will be inferred from the first loaded image.
-    aspectRatio: null, // e.g., 16/9
-    // Preload window in each direction from the current frame
-    preloadRadius: 6,
-    // How tall should the scroll experience be (in viewport heights)? 6 = 600vh
-    scrollHeights: 6,
-  };
-  // ===========================================
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+const hudNum = document.getElementById('fnum');
+const progEl = document.getElementById('prog');
 
-  // Apply wrapper height from config
-  document.querySelector('.wrapper').style.height = (CONFIG.scrollHeights*100)+'vh';
+let W=0,H=0, DPR = Math.min(devicePixelRatio||1,2);
+function resize(){
+  W = canvas.clientWidth|0; H = canvas.clientHeight|0;
+  canvas.width = Math.round(W*DPR); canvas.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  drawFrame(Math.round(frameF));
+}
+window.addEventListener('resize',resize);
 
-  const canvas = document.getElementById('sequence');
-  const ctx = canvas.getContext('2d');
-  const hudFrame = document.getElementById('frameNum');
-  const progEl = document.getElementById('prog');
+// Sequence state
+const total = CONFIG.end - CONFIG.start + 1;
+let frameF = 0;            // floating-frame index for smooth scrubbing
+let currentIndex = -1;     // last drawn integer index
+const cache = new Map();   // index -> HTMLImageElement
 
-  // Expose aspect CSS var for responsive sizing
-  document.documentElement.style.setProperty('--aspect', (CONFIG.aspectRatio || 16/9));
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function idxToName(i){ const n=(CONFIG.start+i).toString().padStart(CONFIG.pad,'0'); return `${CONFIG.prefix}${n}.${CONFIG.ext}`; }
+function urlFor(i){ return `${CONFIG.basePath}${idxToName(i)}`; }
 
-  const totalFrames = CONFIG.end - CONFIG.start + 1; // inclusive
-  let currentIndex = 0; // 0..(end-start)
-  let rafId = null;
-  const cache = new Map(); // index -> HTMLImageElement
+function load(i){
+  if(cache.has(i)) return cache.get(i);
+  const img = new Image();
+  img.decoding='async'; img.loading='eager';
+  img.src = urlFor(i);
+  cache.set(i,img);
+  return img;
+}
 
-  function frameToName(i){
-    const n = (CONFIG.start + i).toString().padStart(CONFIG.pad, '0');
-    return `${CONFIG.prefix}${n}.${CONFIG.ext}`;
+function fitContain(img,w,h){
+  const iw=img.naturalWidth||w, ih=img.naturalHeight||h;
+  const s = Math.min(w/iw, h/ih);
+  const dw=iw*s, dh=ih*s, dx=(w-dw)/2, dy=(h-dh)/2;
+  ctx.clearRect(0,0,w,h);
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+function drawFrame(i){
+  i = clamp(i,0,total-1);
+  if(i===currentIndex) return;
+  currentIndex = i;
+  const img = load(i);
+  if(img.complete && img.naturalWidth>0){
+    fitContain(img, W, H);
+  } else {
+    img.onload = ()=>{ if(i===currentIndex) fitContain(img, W, H); };
   }
-  function urlFor(i){
-    return `${CONFIG.basePath}${frameToName(i)}`;
+  hudNum.textContent = idxToName(i);
+  progEl.style.width = (i/(total-1))*100 + '%';
+  // Preload neighbours
+  for(let d=1; d<=CONFIG.preloadRadius; d++){
+    const a=i-d, b=i+d; if(a>=0) load(a); if(b<=total-1) load(b);
   }
+}
 
-  function setCanvasSize(w, h){
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-  }
+// Directional scrubbing (like Apple): we integrate scroll delta → frame index
+let raf=null;
+function scheduleDraw(){ if(raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(()=> drawFrame(Math.round(frameF))); }
 
-  function fitCover(img, w, h){
-    // draw image covering canvas while preserving aspect
-    const iw = img.naturalWidth, ih = img.naturalHeight;
-    const scale = Math.max(w/iw, h/ih);
-    const dw = iw*scale, dh = ih*scale;
-    const dx = (w - dw)/2, dy = (h - dh)/2;
-    ctx.clearRect(0,0,w,h);
-    ctx.drawImage(img, dx, dy, dw, dh);
-  }
+// Wheel / trackpad
+window.addEventListener('wheel', (e)=>{
+  // Prevent page from actually scrolling so the sequence "owns" the gesture
+  e.preventDefault();
+  // deltaY down is positive → advance; up is negative → reverse
+  const step = (e.deltaY/100) * CONFIG.wheelSensitivity * (total-1);
+  frameF = clamp(frameF + step, 0, total-1);
+  scheduleDraw();
+}, {passive:false});
 
-  function draw(index){
-    const img = cache.get(index);
-    if(!img) return; // not ready yet
-    const w = canvas.clientWidth | 0;
-    const h = canvas.clientHeight | 0;
-    fitCover(img, w, h);
-    const label = frameToName(index);
-    hudFrame.textContent = label;
-  }
+// Keyboard
+window.addEventListener('keydown', (e)=>{
+  let d=0;
+  if(e.key==='ArrowRight' || e.key==='ArrowDown') d = e.shiftKey? 10:1;
+  if(e.key==='ArrowLeft'  || e.key==='ArrowUp')   d = -(e.shiftKey?10:1);
+  if(d!==0){ e.preventDefault(); frameF = clamp(frameF + d, 0, total-1); scheduleDraw(); }
+});
 
-  function requestDraw(index){
-    if(rafId) cancelAnimationFrame(rafId);
-    rafId = requestAnimationFrame(() => draw(index));
-  }
+// Touch (vertical drag)
+let tY=null;
+window.addEventListener('touchstart', (e)=>{ if(e.touches.length===1) tY=e.touches[0].clientY; }, {passive:true});
+window.addEventListener('touchmove', (e)=>{
+  if(tY==null || e.touches.length!==1) return;
+  const dy = tY - e.touches[0].clientY; // swipe up (negative) should advance → use -dy
+  const step = (dy/100) * CONFIG.touchSensitivity * (total-1);
+  frameF = clamp(frameF + step, 0, total-1);
+  tY = e.touches[0].clientY;
+  scheduleDraw();
+}, {passive:true});
+window.addEventListener('touchend', ()=> tY=null, {passive:true});
 
-  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-
-  function progressToIndex(p){
-    // p in [0,1]
-    return Math.round(p * (totalFrames - 1));
-  }
-
-  function onScroll(){
-    const maxScroll = document.body.scrollHeight - window.innerHeight;
-    const p = maxScroll > 0 ? window.scrollY / maxScroll : 0;
-    const idx = progressToIndex(p);
-    if(idx !== currentIndex){
-      currentIndex = idx;
-      requestDraw(currentIndex);
-      progEl.style.width = ((currentIndex)/(totalFrames-1))*100 + '%';
-      queuePreload(idx);
-    }
-  }
-
-  function queuePreload(center){
-    const r = CONFIG.preloadRadius;
-    for(let offset=1; offset<=r; offset++){
-      const a = center - offset; const b = center + offset;
-      if(a>=0) loadFrame(a);
-      if(b<=totalFrames-1) loadFrame(b);
-    }
-  }
-
-  function loadFrame(index){
-    if(cache.has(index)) return cache.get(index);
-    const img = new Image();
-    img.decoding = 'async';
-    img.loading = 'eager';
-    img.src = urlFor(index);
-    cache.set(index, img);
-    if(CONFIG.aspectRatio == null){
-      img.addEventListener('load', ()=>{
-        if(!CONFIG.aspectRatio){
-          CONFIG.aspectRatio = img.naturalWidth / img.naturalHeight;
-          document.documentElement.style.setProperty('--aspect', CONFIG.aspectRatio);
-          // After first load we can size canvas properly
-          resize();
-          requestDraw(currentIndex);
-        }
-      }, {once:true});
-    }
-    // If the requested index is the one we need to draw now, trigger draw on load
-    img.addEventListener('load', ()=>{ if(index===currentIndex) requestDraw(index); });
-    return img;
-  }
-
-  function resize(){
-    // Resize canvas to fit the viewport while keeping the CSS sizing logic
-    const aspect = CONFIG.aspectRatio || (16/9);
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    let cw = w, ch = h;
-    if(w/h > aspect){
-      ch = h; cw = h * aspect;
-    } else {
-      cw = w; ch = w / aspect;
-    }
-    setCanvasSize(cw|0, ch|0);
-    requestDraw(currentIndex);
-  }
-
-  // Keyboard scrubbing
-  function onKey(e){
-    const step = (e.shiftKey ? 10 : 1);
-    if(["ArrowRight","ArrowDown"].includes(e.key)){
-      e.preventDefault();
-      currentIndex = clamp(currentIndex + step, 0, totalFrames-1);
-    } else if(["ArrowLeft","ArrowUp"].includes(e.key)){
-      e.preventDefault();
-      currentIndex = clamp(currentIndex - step, 0, totalFrames-1);
-    } else { return; }
-    const maxScroll = document.body.scrollHeight - window.innerHeight;
-    const p = currentIndex / (totalFrames-1);
-    window.scrollTo({ top: p*maxScroll, behavior: 'instant' });
-    requestDraw(currentIndex);
-    queuePreload(currentIndex);
-    progEl.style.width = (p*100) + '%';
-  }
-
-  // Touch scrubbing (one-finger horizontal for fine control)
-  let touchPrevX = null;
-  window.addEventListener('touchstart', (e)=>{
-    if(e.touches.length===1) touchPrevX = e.touches[0].clientX;
-  }, {passive:true});
-  window.addEventListener('touchmove', (e)=>{
-    if(e.touches.length!==1 || touchPrevX==null) return;
-    const dx = e.touches[0].clientX - touchPrevX;
-    if(Math.abs(dx) > 8){
-      const delta = Math.sign(dx) * 1; // 1 frame per gesture step
-      currentIndex = clamp(currentIndex + delta, 0, totalFrames-1);
-      requestDraw(currentIndex);
-      queuePreload(currentIndex);
-      const maxScroll = document.body.scrollHeight - window.innerHeight;
-      const p = currentIndex / (totalFrames-1);
-      window.scrollTo({ top: p*maxScroll, behavior: 'instant' });
-      progEl.style.width = (p*100) + '%';
-      touchPrevX = e.touches[0].clientX;
-    }
-  }, {passive:true});
-  window.addEventListener('touchend', ()=> touchPrevX = null, {passive:true});
-
-  // Init
-  (function init(){
-    // Preload first frame; when loaded, set initial sizes & draw
-    loadFrame(0).addEventListener('load', ()=>{
-      if(!CONFIG.aspectRatio){
-        CONFIG.aspectRatio = cache.get(0).naturalWidth / cache.get(0).naturalHeight;
-        document.documentElement.style.setProperty('--aspect', CONFIG.aspectRatio);
-      }
-      resize();
-      requestDraw(0);
-      queuePreload(0);
-    }, {once:true});
-
-    window.addEventListener('resize', resize);
-    window.addEventListener('scroll', onScroll, {passive:true});
-    window.addEventListener('keydown', onKey);
-  })();
-  </script>
-
-  <!--
-  ================= HOW TO USE ON GITHUB PAGES =================
-  1) Put this HTML file in your repo (e.g., at the root or /docs).
-  2) Put your frames in /frames with names:
-     2_00000.jpg, 2_00001.jpg, ... 2_00100.jpg
-     If your files use PNG or WEBP, change CONFIG.ext above.
-  3) If your frames are stored elsewhere (like /assets/sequence/), update CONFIG.basePath.
-  4) Enable GitHub Pages (Settings → Pages), then visit your site URL.
-
-  Tuning:
-   - Make the experience longer or shorter by changing CONFIG.scrollHeights.
-   - Increase CONFIG.preloadRadius if you have fast hosting and want more aggressive preloading.
-   - If your frames are a different prefix/padding, adjust CONFIG.prefix and CONFIG.pad.
-  ===============================================================
-  -->
+// Init
+resize();
+load(0).onload = ()=> drawFrame(0);
+// Also kick off some early preloads
+for(let k=1;k<=Math.min(4,total-1);k++) load(k);
+</script>
 </body>
 </html>
