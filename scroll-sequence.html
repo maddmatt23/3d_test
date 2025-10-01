@@ -138,5 +138,26 @@ load(0).onload = ()=> drawFrame(0);
 // Also kick off some early preloads
 for(let k=1;k<=Math.min(4,total-1);k++) load(k);
 </script>
+  
+  <div id="debug" style="position:fixed;top:12px;left:12px;background:rgba(0,0,0,.55);color:#fff;padding:8px 10px;border-radius:8px;font:12px ui-monospace,Menlo,Consolas,monospace;display:none;max-width:60ch;z-index:20"></div>
+<script>
+// --- lightweight on‑screen debug so you don't need DevTools ---
+const dbg = document.getElementById('debug');
+function showDbg(msg){ dbg.style.display='block'; dbg.innerHTML = msg; }
+
+function testFirstURL(){
+  const u = urlFor(0);
+  showDbg(`Attempting: <a href="${u}" style="color:#7dd3fc" target="_blank" rel="noopener">${u}</a>`);
+}
+
+window.addEventListener('load', ()=>{
+  testFirstURL();
+  // if first image errors, tell you immediately
+  const img = load(0);
+  img.addEventListener('error', ()=>{
+    showDbg(dbg.innerHTML + '<br>❌ Failed to load first frame. Check the link above — it should open your image in a new tab. If it 404s, the path or name is wrong.');
+  });
+});
+</script>
 </body>
 </html>
